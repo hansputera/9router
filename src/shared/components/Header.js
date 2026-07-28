@@ -1,6 +1,5 @@
 "use client";
 
-import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -9,6 +8,7 @@ import ProviderIcon from "@/shared/components/ProviderIcon";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import ThemeToggle from "@/shared/components/ThemeToggle";
 import DonateModal from "@/shared/components/DonateModal";
+import ClerkHeaderSlot from "@/shared/components/ClerkHeaderSlot";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
@@ -323,22 +323,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         </button>
         <ThemeToggle />
         <HeaderLanguage />
-        <OrganizationSwitcher 
-          hidePersonal={false}
-          appearance={{
-            elements: {
-              organizationSwitcherTrigger: "text-text-main hover:text-primary transition-colors py-1.5 px-3 rounded-lg border border-border bg-surface",
-            }
-          }}
-        />
-        <UserButton 
-          afterSignOutUrl="/sign-in"
-          appearance={{
-            elements: {
-              userButtonAvatarBox: "w-8 h-8 rounded-full border border-border"
-            }
-          }}
-        />
+        <ClerkHeaderSlot />
       </div>
       <DonateModal isOpen={donateOpen} onClose={() => setDonateOpen(false)} />
     </header>

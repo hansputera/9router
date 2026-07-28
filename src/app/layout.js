@@ -29,9 +29,18 @@ export const viewport = {
   themeColor: "#0a0a0a",
 };
 
+const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+
+function AuthProvider({ children }) {
+  if (clerkPublishableKey) {
+    return <ClerkProvider publishableKey={clerkPublishableKey}>{children}</ClerkProvider>;
+  }
+  return children;
+}
+
 export default function RootLayout({ children }) {
   return (
-    <ClerkProvider>
+    <AuthProvider>
       <html lang="en" suppressHydrationWarning>
         <head>
           <script
@@ -49,6 +58,6 @@ export default function RootLayout({ children }) {
           <GoogleAnalytics gaId={"G-LC959F603F"} />
         </body>
       </html>
-    </ClerkProvider>
+    </AuthProvider>
   );
 }

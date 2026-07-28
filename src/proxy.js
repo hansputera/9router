@@ -1,18 +1,32 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
 import { proxy as dashboardProxy } from "./dashboardGuard";
 
-export default clerkMiddleware(async (auth, request) => {
-  // We still run the old dashboardGuard logic first because it contains
-  // custom logic for CLI token validation, local loopback checks, etc.
-  // The dashboardGuard handles its own redirecting for /login vs /dashboard.
-  return dashboardProxy(request, auth);
-});
+const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+let clerkInit = null;
+
+async function getClerkMiddleware() {
+  if (!clerkKey) return null;
+  if (clerkInit) return clerkInit;
+  try {
+    const { clerkMiddleware } = await import("@clerk/nextjs/server");
+    clerkInit = clerkMiddleware(async (auth, request) => {
+      return dashboardProxy(request, auth);
+    });
+  } catch (e) {
+    console.error("[proxy] Clerk middleware init failed:", e.message);
+    clerkInit = null;
+  }
+  return clerkInit;
+}
+
+export default async function middleware(request) {
+  const clerk = await getClerkMiddleware();
+  if (clerk) return clerk(request);
+  return dashboardProxy(request, null);
+}
 
 export const config = {
   matcher: [
-    // Next.js standard matcher for middleware
     "/((?!_next/static|_next/image|favicon\\.ico).*)",
-    // Clerk explicit matchers
     "/(api|trpc)(.*)",
   ],
 };
