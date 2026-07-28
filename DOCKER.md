@@ -1,6 +1,6 @@
 # Docker
 
-Run 9Router in a container. Published images: [`decolua/9router`](https://hub.docker.com/r/decolua/9router) — multi-platform `linux/amd64` + `linux/arm64`.
+Run 9Router in a container. Published images: [`hansputera/9router-fork`](https://hub.docker.com/r/hansputera/9router-fork) — multi-platform `linux/amd64` + `linux/arm64`.
 
 **Two variants available:**
 
@@ -22,7 +22,7 @@ docker run -d \
   -v "$HOME/.9router:/app/data" \
   -e DATA_DIR=/app/data \
   --name 9router \
-  decolua/9router:latest
+  hansputera/9router-fork:latest
 ```
 
 **Bun variant (faster):**
@@ -32,7 +32,7 @@ docker run -d \
   -v "$HOME/.9router:/app/data" \
   -e DATA_DIR=/app/data \
   --name 9router \
-  decolua/9router:bun-latest
+  hansputera/9router-fork:bun-latest
 ```
 
 App listens on port `20128`. Open: http://localhost:20128
@@ -89,7 +89,7 @@ docker run -d \
   -e HOSTNAME=0.0.0.0 \
   -e DEBUG=true \
   --name 9router \
-  decolua/9router:latest
+  hansputera/9router-fork:latest
 ```
 
 ## Optional Headroom sidecar
@@ -99,7 +99,7 @@ The 9Router image does not bundle Python or Headroom. To use Headroom in Docker,
 ```yaml
 services:
   9router:
-    image: decolua/9router:latest
+    image: hansputera/9router-fork:latest
     ports:
       - "20128:20128"
     volumes:
@@ -123,7 +123,7 @@ If Headroom runs on the Docker host instead of as a sidecar, use `http://host.do
 ## Update to latest
 
 ```bash
-docker pull decolua/9router:latest
+docker pull hansputera/9router-fork:latest
 docker rm -f 9router
 # re-run the quick start command
 ```
@@ -154,8 +154,8 @@ docker buildx bake --push      # push both to registries
 ## Publish (automatic via CI)
 
 Push a git tag `v*` → GitHub Actions builds multi-platform (amd64+arm64) Node + Bun images and pushes to:
-- Docker Hub: `decolua/9router:{tag}`, `decolua/9router:node-{tag}`, `decolua/9router:bun-{tag}`
-- GHCR: `ghcr.io/decolua/9router:{tag}`, etc.
+- Docker Hub: `hansputera/9router-fork:{tag}`, `hansputera/9router-fork:node-{tag}`, `hansputera/9router-fork:bun-{tag}`
+- GHCR: `ghcr.io/hansputera/9router-fork:{tag}`, etc.
 
 ```bash
 # Use scripts/release.js (recommended)

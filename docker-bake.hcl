@@ -15,8 +15,8 @@ target "node" {
   }
   platforms = ["linux/amd64", "linux/arm64"]
   tags = [
-    "decolua/9router:latest",
-    "decolua/9router:node-latest",
+    "hansputera/9router-fork:latest",
+    "hansputera/9router-fork:node-latest",
   ]
 }
 
@@ -29,7 +29,7 @@ target "bun" {
   }
   platforms = ["linux/amd64", "linux/arm64"]
   tags = [
-    "decolua/9router:bun-latest",
+    "hansputera/9router-fork:bun-latest",
   ]
 }
 
@@ -37,15 +37,15 @@ target "bun" {
 target "node-versioned" {
   inherits = ["node"]
   tags = [
-    "decolua/9router:${TAG}",
-    "decolua/9router:node-${TAG}",
+    "hansputera/9router-fork:${TAG}",
+    "hansputera/9router-fork:node-${TAG}",
   ]
 }
 
 target "bun-versioned" {
   inherits = ["bun"]
   tags = [
-    "decolua/9router:bun-${TAG}",
+    "hansputera/9router-fork:bun-${TAG}",
   ]
 }
 

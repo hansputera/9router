@@ -1,7 +1,7 @@
 services:
   # ─── Default: Node variant ──────────────────────────────────────────────
   9router-node:
-    image: decolua/9router:node-latest
+    image: hansputera/9router-fork:node-latest
     container_name: 9router
     restart: always
     ports:
@@ -24,7 +24,7 @@ services:
 
   # ─── Bun variant ────────────────────────────────────────────────────────
   9router-bun:
-    image: decolua/9router:bun-latest
+    image: hansputera/9router-fork:bun-latest
     container_name: 9router-bun
     restart: always
     ports:
