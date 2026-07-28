@@ -8,6 +8,8 @@ import { isOidcConfigured } from "@/lib/auth/oidc";
 import { checkLock, recordFail, recordSuccess, getClientIp } from "@/lib/auth/loginLimiter";
 import { isLocalRequest } from "@/dashboardGuard";
 
+const isBun = process.versions.bun;
+
 const RESET_HINT = "Forgot password? Reset to default via 9Router CLI → Settings → Reset Password to Default.";
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
 
@@ -46,7 +48,11 @@ export async function POST(request) {
 
     let isValid = false;
     if (storedHash) {
-      isValid = await bcrypt.compare(password, storedHash);
+      if (isBun) {
+        isValid = Bun.password.verifySync(password, storedHash);
+      } else {
+        isValid = await bcrypt.compare(password, storedHash);
+      }
     } else {
       // Use env var or default — timing-safe comparison for plaintext fallback
       const initialPassword = process.env.INITIAL_PASSWORD || "123456";

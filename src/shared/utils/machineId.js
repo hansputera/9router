@@ -4,6 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { DATA_DIR } from '@/lib/dataDir';
 
+const isBun = process.versions.bun;
 const MACHINE_ID_FILE = path.join(DATA_DIR, 'machine-id');
 const AUTH_DIR = path.join(DATA_DIR, 'auth');
 const CLI_SECRET_FILE = path.join(AUTH_DIR, 'cli-secret');
@@ -20,7 +21,11 @@ function loadRawMachineId() {
     if (cachedRawId) return cachedRawId;
   } catch {}
   try {
-    cachedRawId = machineIdSync();
+    if (isBun) {
+      cachedRawId = Bun.getMachineId();
+    } else {
+      cachedRawId = machineIdSync();
+    }
   } catch {
     cachedRawId = crypto.randomUUID();
   }

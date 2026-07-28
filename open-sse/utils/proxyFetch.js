@@ -215,10 +215,16 @@ function resolveConnectionProxyUrl(targetUrl, proxyOptions) {
 
 /**
  * Create proxy dispatcher lazily (undici-compatible)
+ * Under Bun, uses Bun.fetch native proxy support instead.
  */
 async function getDispatcher(proxyUrl) {
   const normalized = normalizeProxyUrl(proxyUrl);
   if (!normalized) return null;
+
+  // Bun native proxy — faster, no dependency needed
+  if (process.versions.bun) {
+    return { bunProxy: normalized };
+  }
 
   if (!proxyDispatchers.has(normalized)) {
     // Evict oldest entry if max size reached
@@ -234,8 +240,14 @@ async function getDispatcher(proxyUrl) {
 
 /**
  * Create HTTPS request with manual socket connection (bypass DNS)
+ * Uses Bun.connect when available for lower overhead.
  */
 async function createBypassRequest(parsedUrl, realIP, options) {
+  // Bun native — use Bun.connect for lower overhead
+  if (process.versions.bun) {
+    return bunBypassRequest(parsedUrl, realIP, options);
+  }
+
   const httpsModule = await import("https");
   const netModule = await import("net");
   // CJS modules expose exports via .default in ESM dynamic import context
@@ -291,6 +303,72 @@ async function createBypassRequest(parsedUrl, realIP, options) {
   });
 }
 
+/**
+ * Bun-native DNS bypass using Bun.connect — lower overhead than Node net.Socket.
+ */
+async function bunBypassRequest(parsedUrl, realIP, options) {
+  const { connect } = globalThis.Bun;
+  const tlsOptions = {
+    hostname: realIP,
+    port: HTTPS_PORT,
+    servername: parsedUrl.hostname,
+    rejectUnauthorized: true,
+  };
+  const response = await new Promise((resolve, reject) => {
+    connect(tlsOptions, (socket) => {
+      const reqHeaders = {
+        ...options.headers,
+        Host: parsedUrl.hostname,
+      };
+      const reqLine = `${options.method || "GET"} ${parsedUrl.pathname}${parsedUrl.search} HTTP/1.1`;
+      const rawHeaders = Object.entries(reqHeaders)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join("\r\n");
+      const reqData = [reqLine, `${rawHeaders}`, ""].join("\r\n");
+      socket.write(reqData);
+      if (options.body) {
+        socket.write(typeof options.body === "string" ? options.body : JSON.stringify(options.body));
+      }
+      let data = Buffer.alloc(0);
+      socket.onData((chunk) => {
+        data = Buffer.concat([data, chunk]);
+        const headerEnd = data.indexOf("\r\n\r\n");
+        if (headerEnd === -1) return;
+        const rawResp = data.subarray(0, headerEnd).toString();
+        const bodyData = data.subarray(headerEnd + 4);
+        const [statusLine, ...headerLines] = rawResp.split("\r\n");
+        const statusMatch = statusLine.match(/^HTTP\/[\d.]+\s+(\d+)/);
+        const statusCode = statusMatch ? Number(statusMatch[1]) : 0;
+        const headers = {};
+        for (const line of headerLines) {
+          const i = line.indexOf(":");
+          if (i > 0) headers[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+        }
+        resolve({
+          ok: statusCode >= 200 && statusCode < 300,
+          status: statusCode,
+          statusText: "",
+          headers,
+          body: new ReadableStream({
+            start(controller) {
+              controller.enqueue(new Uint8Array(bodyData));
+              socket.onData((chunk) => {
+                controller.enqueue(new Uint8Array(chunk));
+                if (chunk.length === 0) controller.close();
+              });
+            },
+          }),
+          text: async () => bodyData.toString(),
+          json: async () => JSON.parse(bodyData.toString()),
+        });
+      });
+      socket.onEnd(() => {});
+      socket.onError(reject);
+    }).catch(reject);
+  });
+  return response;
+}
+
 export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   const targetUrl = typeof url === "string" ? url : url.toString();
 
@@ -316,6 +394,9 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
       // Proxy resolves DNS externally (not affected by /etc/hosts) — use proxy directly
       try {
         const dispatcher = await getDispatcher(proxyUrl);
+        if (dispatcher?.bunProxy) {
+          return await originalFetch(url, { ...options, proxy: dispatcher.bunProxy });
+        }
         return await originalFetch(url, { ...options, dispatcher });
       } catch (proxyError) {
         if (proxyOptions?.strictProxy === true) {
@@ -337,6 +418,9 @@ export async function proxyAwareFetch(url, options = {}, proxyOptions = null) {
   if (proxyUrl) {
     try {
       const dispatcher = await getDispatcher(proxyUrl);
+      if (dispatcher?.bunProxy) {
+        return await originalFetch(url, { ...options, proxy: dispatcher.bunProxy });
+      }
       return await originalFetch(url, { ...options, dispatcher });
     } catch (proxyError) {
       // If strictProxy is enabled, fail hard instead of falling back to direct

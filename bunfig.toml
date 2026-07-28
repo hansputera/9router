@@ -1,0 +1,11 @@
+# Bun configuration — Node.js ignores this file entirely
+[install]
+cache = true
+frozenLockfile = false
+
+[test]
+runner = "bun:test"
+
+# Turbopack is preferred over webpack under Bun
+[run]
+bun = true

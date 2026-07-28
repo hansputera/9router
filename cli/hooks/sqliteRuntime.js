@@ -75,10 +75,12 @@ function summarizeNpmError(stderr = "") {
   return lastLine ? lastLine.slice(0, 200) : "Unknown error";
 }
 
+const isBunRuntime = process.versions && !!process.versions.bun;
+
 function runNpmInstall({ cwd, pkgs, extraArgs = [], timeout = 180000 }) {
   const args = ["install", ...pkgs, "--no-audit", "--no-fund", "--prefer-online", ...extraArgs];
-  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-  const res = spawnSync(npmCmd, args, {
+  const cmd = isBunRuntime ? "bun" : (process.platform === "win32" ? "npm.cmd" : "npm");
+  const res = spawnSync(cmd, args, {
     cwd,
     stdio: ["ignore", "pipe", "pipe"],
     timeout,
@@ -97,7 +99,8 @@ function npmInstall(pkgs, opts = {}) {
     const reason = summarizeNpmError(res.stderr);
     console.warn("⚠️  SQLite engine install failed — using fallback");
     console.warn(`   Reason: ${reason}`);
-    console.warn(`   Retry:  cd "${cwd}" && npm install ${pkgs.join(" ")}`);
+    const installCmd = isBunRuntime ? "bun add" : "npm install";
+    console.warn(`   Retry:  cd "${cwd}" && ${installCmd} ${pkgs.join(" ")}`);
   }
   return res.ok;
 }

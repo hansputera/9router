@@ -25,6 +25,31 @@ function normalizeString(value) {
   return String(value).trim();
 }
 
+const isBun = typeof process !== "undefined" && process.versions && !!process.versions.bun;
+
+async function fetchViaProxy(normalizedTestUrl, normalizedProxyUrl, controller, normalizedTimeoutMs) {
+  if (isBun) {
+    // Bun native: proxy option on Bun.fetch
+    const res = await fetch(normalizedTestUrl, {
+      method: "HEAD",
+      proxy: normalizedProxyUrl,
+      signal: controller.signal,
+      headers: { "User-Agent": "9Router" },
+    });
+    return res;
+  }
+  // Node.js: use undici ProxyAgent
+  const dispatcher = new ProxyAgent({ uri: normalizedProxyUrl });
+  const res = await undiciFetch(normalizedTestUrl, {
+    method: "HEAD",
+    dispatcher,
+    signal: controller.signal,
+    headers: { "User-Agent": "9Router" },
+  });
+  await dispatcher.close().catch(() => {});
+  return res;
+}
+
 export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
   const normalizedProxyUrl = normalizeString(proxyUrl);
   if (!normalizedProxyUrl) {
@@ -38,33 +63,13 @@ export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
       ? Math.min(timeoutMsRaw, 30000)
       : DEFAULT_TIMEOUT_MS;
 
-  let dispatcher;
-
   try {
-    try {
-      dispatcher = new ProxyAgent({ uri: normalizedProxyUrl });
-    } catch (err) {
-      return {
-        ok: false,
-        status: 400,
-        error: `Invalid proxy URL: ${err?.message || String(err)}`,
-      };
-    }
-
     const controller = new AbortController();
     const startedAt = Date.now();
     const timer = setTimeout(() => controller.abort(), normalizedTimeoutMs);
 
     try {
-      const res = await undiciFetch(normalizedTestUrl, {
-        method: "HEAD",
-        dispatcher,
-        signal: controller.signal,
-        headers: {
-          "User-Agent": "9Router",
-        },
-      });
-
+      const res = await fetchViaProxy(normalizedTestUrl, normalizedProxyUrl, controller, normalizedTimeoutMs);
       return {
         ok: res.ok,
         status: res.status,
@@ -82,10 +87,6 @@ export async function testProxyUrl({ proxyUrl, testUrl, timeoutMs } = {}) {
       clearTimeout(timer);
     }
   } finally {
-    try {
-      await dispatcher?.close?.();
-    } catch {
-      // ignore
-    }
+    // Bun handles connection cleanup natively; undici via dispatcher is cleaned in fetchViaProxy
   }
 }

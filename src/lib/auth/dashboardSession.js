@@ -7,6 +7,7 @@ import { DATA_DIR } from "@/lib/dataDir";
 import { getSettings } from "@/lib/localDb";
 
 const DEFAULT_PASSWORD = "123456";
+const isBun = typeof process !== "undefined" && process.versions && !!process.versions.bun;
 
 function loadJwtSecret() {
   if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
@@ -76,9 +77,18 @@ export async function verifyDashboardPassword(password) {
   if (typeof password !== "string" || !password) return false;
   const settings = await getSettings();
   const storedHash = settings?.password;
-  if (storedHash) return bcrypt.compare(password, storedHash);
+  if (storedHash) {
+    if (isBun) return Bun.password.verifySync(password, storedHash);
+    return bcrypt.compare(password, storedHash);
+  }
   const initialPassword = process.env.INITIAL_PASSWORD || DEFAULT_PASSWORD;
   const pwBuf = Buffer.from(password, "utf8");
   const initialBuf = Buffer.from(initialPassword, "utf8");
   return pwBuf.length === initialBuf.length && crypto.timingSafeEqual(pwBuf, initialBuf);
+}
+
+// Hash a password for storage (Bun native when available).
+export async function hashPassword(password) {
+  if (isBun) return Bun.password.hashSync(password);
+  return bcrypt.hashSync(password, 10);
 }
