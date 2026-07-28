@@ -1,22 +1,18 @@
 const http = require("http");
+const https = require("https");
 
 const origCreate = http.createServer.bind(http);
+const origCreateSecure = https.createServer ? https.createServer.bind(https) : null;
 
 // Wrap Next standalone HTTP server: derive client IP from the TCP socket
-// (unspoofable) and strip client-supplied forwarding headers so downstream
-// rate-limiting keys on the real peer address instead of attacker-controlled XFF.
-http.createServer = (...args) => {
-  const handler = args.find((a) => typeof a === "function");
-  const rest = args.filter((a) => typeof a !== "function");
-  if (!handler) return origCreate(...args);
-  const wrapped = (req, res) => {
+// and auto-open browser when running locally.
+function makeWrappedHandler(handler) {
+  return (req, res) => {
     const socketIp = req.socket && req.socket.remoteAddress ? req.socket.remoteAddress : "";
     const xff = req.headers["x-forwarded-for"];
     const xRealIp = req.headers["x-real-ip"];
     const viaProxy = !!(xff || xRealIp);
     const isLoopbackProxy = socketIp === "127.0.0.1" || socketIp === "::1" || socketIp === "::ffff:127.0.0.1";
-    // Trust forwarding headers only when the TCP peer is a local reverse proxy.
-    // Direct/public sockets remain keyed by the unspoofable peer address.
     const proxyIp = xRealIp || (xff ? String(xff).split(",")[0].trim() : "");
     const ip = isLoopbackProxy && proxyIp ? proxyIp : socketIp;
     delete req.headers["x-9r-real-ip"];
@@ -26,7 +22,69 @@ http.createServer = (...args) => {
     if (viaProxy) req.headers["x-9r-via-proxy"] = "1";
     return handler(req, res);
   };
-  return origCreate(...rest, wrapped);
+}
+
+// Patch http.createServer
+http.createServer = (...args) => {
+  const handler = args.find((a) => typeof a === "function");
+  const rest = args.filter((a) => typeof a !== "function");
+  if (!handler) return origCreate(...args);
+  const wrapped = makeWrappedHandler(handler);
+
+  const server = origCreate(...rest, wrapped);
+  patchServerListen(server);
+  return server;
 };
+
+// Patch https.createServer if available
+if (origCreateSecure) {
+  https.createServer = (...args) => {
+    const handler = args.find((a) => typeof a === "function");
+    const rest = args.filter((a) => typeof a !== "function");
+    if (!handler) return origCreateSecure(...args);
+    const wrapped = makeWrappedHandler(handler);
+
+    const server = origCreateSecure(...rest, wrapped);
+    patchServerListen(server);
+    return server;
+  };
+}
+
+let autoOpenDone = false;
+
+function patchServerListen(server) {
+  const origListen = server.listen.bind(server);
+  server.listen = (...args) => {
+    const result = origListen(...args);
+    maybeOpenBrowser(args);
+    return result;
+  };
+}
+
+function getListenPort(args) {
+  for (const a of args) {
+    if (typeof a === "number") return a;
+    if (typeof a === "object" && a !== null && a.port) return a.port;
+  }
+  return parseInt(process.env.PORT || "20128", 10);
+}
+
+function maybeOpenBrowser(args) {
+  if (autoOpenDone) return;
+  const port = getListenPort(args);
+  const url = `http://localhost:${port}/dashboard`;
+  autoOpenDone = true;
+
+  // Wait for server to be ready
+  setTimeout(() => {
+    console.log(`\n  🌐 Dashboard: ${url}\n`);
+    if (process.env.DISABLE_AUTO_OPEN !== "true") {
+      try {
+        const open = require("open");
+        open(url, { wait: false }).catch(() => {});
+      } catch {}
+    }
+  }, 2000);
+}
 
 require("./server.js");

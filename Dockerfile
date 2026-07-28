@@ -55,6 +55,11 @@ COPY --from=builder /app/open-sse ./open-sse
 COPY --from=builder /app/src/mitm ./src/mitm
 COPY --from=builder /app/node_modules/node-forge ./node_modules/node-forge
 COPY --from=builder /app/node_modules/next ./node_modules/next
+# Auto-open browser (only used in local non-Docker environments)
+COPY --from=builder /app/node_modules/open ./node_modules/open
+COPY --from=builder /app/node_modules/is-wsl ./node_modules/is-wsl
+COPY --from=builder /app/node_modules/define-lazy-prop ./node_modules/define-lazy-prop
+COPY --from=builder /app/node_modules/is-inside-container ./node_modules/is-inside-container
 
 RUN mkdir -p /app/data && \
     ln -sf /app/data /root/.9router 2>/dev/null || true
