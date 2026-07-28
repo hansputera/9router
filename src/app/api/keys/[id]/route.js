@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { deleteApiKey, getApiKeyById, updateApiKey } from "@/lib/localDb";
 
 // GET /api/keys/[id] - Get single key
 export async function GET(request, { params }) {
   try {
+    const { orgId } = await auth();
     const { id } = await params;
     const key = await getApiKeyById(id);
-    if (!key) {
+    if (!key || key.orgId !== (orgId || null)) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
     }
     return NextResponse.json({ key });
@@ -19,12 +21,13 @@ export async function GET(request, { params }) {
 // PUT /api/keys/[id] - Update key
 export async function PUT(request, { params }) {
   try {
+    const { orgId } = await auth();
     const { id } = await params;
     const body = await request.json();
     const { isActive } = body;
 
     const existing = await getApiKeyById(id);
-    if (!existing) {
+    if (!existing || existing.orgId !== (orgId || null)) {
       return NextResponse.json({ error: "Key not found" }, { status: 404 });
     }
 
@@ -43,7 +46,13 @@ export async function PUT(request, { params }) {
 // DELETE /api/keys/[id] - Delete API key
 export async function DELETE(request, { params }) {
   try {
+    const { orgId } = await auth();
     const { id } = await params;
+
+    const existing = await getApiKeyById(id);
+    if (!existing || existing.orgId !== (orgId || null)) {
+      return NextResponse.json({ error: "Key not found" }, { status: 404 });
+    }
 
     const deleted = await deleteApiKey(id);
     if (!deleted) {

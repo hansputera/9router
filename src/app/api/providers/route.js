@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import {
   getProviderConnections,
   createProviderConnection,
@@ -49,7 +50,8 @@ async function normalizeProxyPoolId(proxyPoolId) {
 // GET /api/providers - List all connections
 export async function GET() {
   try {
-    const connections = await getProviderConnections();
+    const { orgId } = await auth();
+    const connections = await getProviderConnections({ orgId: orgId || null });
 
     // Build nodeNameMap for compatible providers (id → name)
     let nodeNameMap = {};
@@ -86,6 +88,11 @@ export async function GET() {
 // POST /api/providers - Create new connection (API Key only, OAuth via separate flow)
 export async function POST(request) {
   try {
+    const { orgId, orgRole } = await auth();
+    if (orgRole !== "org:admin" && orgId) {
+      return NextResponse.json({ error: "Only team admins can configure providers" }, { status: 403 });
+    }
+
     const body = await request.json();
     const provider = normalizeProviderId(body.provider);
     const { apiKey, name, displayName, priority, globalPriority, defaultModel, testStatus } = body;
@@ -178,6 +185,7 @@ export async function POST(request) {
       name: connectionName,
       apiKey: apiKey || "",
       priority: priority || 1,
+      orgId: orgId || null,
       globalPriority: globalPriority || null,
       defaultModel: defaultModel || null,
       providerSpecificData: mergedProviderSpecificData,

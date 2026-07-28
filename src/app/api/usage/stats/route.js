@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getUsageStats } from "@/lib/usageDb";
 
 const VALID_PERIODS = new Set(["today", "24h", "7d", "30d", "60d", "all"]);
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request) {
   try {
+    const { orgId } = await auth();
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "7d";
 
@@ -14,7 +16,7 @@ export async function GET(request) {
       return NextResponse.json({ error: "Invalid period" }, { status: 400 });
     }
 
-    const stats = await getUsageStats(period);
+    const stats = await getUsageStats(period, orgId || null);
     return NextResponse.json(stats);
   } catch (error) {
     console.error("[API] Failed to get usage stats:", error);

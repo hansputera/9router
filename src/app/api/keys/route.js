@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getApiKeys, createApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 
@@ -7,7 +8,8 @@ export const dynamic = "force-dynamic";
 // GET /api/keys - List API keys
 export async function GET() {
   try {
-    const keys = await getApiKeys();
+    const { orgId } = await auth();
+    const keys = await getApiKeys({ orgId: orgId || null });
     return NextResponse.json({ keys });
   } catch (error) {
     console.log("Error fetching keys:", error);
@@ -18,6 +20,7 @@ export async function GET() {
 // POST /api/keys - Create new API key
 export async function POST(request) {
   try {
+    const { userId, orgId } = await auth();
     const body = await request.json();
     const { name } = body;
 
@@ -27,7 +30,7 @@ export async function POST(request) {
 
     // Always get machineId from server
     const machineId = await getConsistentMachineId();
-    const apiKey = await createApiKey(name, machineId);
+    const apiKey = await createApiKey(name, machineId, userId || null, orgId || null);
 
     return NextResponse.json({
       key: apiKey.key,

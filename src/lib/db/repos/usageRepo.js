@@ -270,12 +270,15 @@ export async function saveRequestUsage(entry) {
            AND COALESCE(model, '') = COALESCE(?, '')
            AND COALESCE(connectionId, '') = COALESCE(?, '')
            AND COALESCE(apiKey, '') = COALESCE(?, '')
+           AND COALESCE(userId, '') = COALESCE(?, '')
+           AND COALESCE(orgId, '') = COALESCE(?, '')
            AND promptTokens = ?
            AND completionTokens = ?
          ORDER BY id DESC LIMIT 1`,
         [
           entry.timestamp, entry.provider || null, entry.model || null,
           entry.connectionId || null, entry.apiKey || null,
+          entry.userId || null, entry.orgId || null,
           promptTokens, completionTokens,
         ]
       );
@@ -288,10 +291,11 @@ export async function saveRequestUsage(entry) {
       }
 
       db.run(
-        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO usageHistory(timestamp, provider, model, connectionId, apiKey, endpoint, userId, orgId, promptTokens, completionTokens, cost, status, tokens, meta) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           entry.timestamp, entry.provider || null, entry.model || null,
           entry.connectionId || null, entry.apiKey || null, entry.endpoint || null,
+          entry.userId || null, entry.orgId || null,
           promptTokens, completionTokens, entry.cost || 0, entry.status || "ok",
           stringifyJson(tokens), stringifyJson({}),
         ]
@@ -331,13 +335,21 @@ export async function getUsageHistory(filter = {}) {
   if (filter.model) { conds.push("model = ?"); params.push(filter.model); }
   if (filter.startDate) { conds.push("timestamp >= ?"); params.push(new Date(filter.startDate).toISOString()); }
   if (filter.endDate) { conds.push("timestamp <= ?"); params.push(new Date(filter.endDate).toISOString()); }
+  if (filter.orgId !== undefined) {
+    if (filter.orgId === null) {
+      conds.push("orgId IS NULL");
+    } else {
+      conds.push("orgId = ?"); params.push(filter.orgId);
+    }
+  }
 
   const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
-  const rows = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, cost, status, tokens FROM usageHistory ${where} ORDER BY id ASC`, params);
+  const rows = db.all(`SELECT timestamp, provider, model, connectionId, apiKey, endpoint, userId, orgId, cost, status, tokens FROM usageHistory ${where} ORDER BY id ASC`, params);
 
   return rows.map((r) => ({
     timestamp: r.timestamp, provider: r.provider, model: r.model,
     connectionId: r.connectionId, apiKeyMasked: maskApiKey(r.apiKey), endpoint: r.endpoint,
+    userId: r.userId, orgId: r.orgId,
     cost: r.cost, status: r.status, tokens: parseJson(r.tokens, {}),
   }));
 }
@@ -352,7 +364,7 @@ function loadDaysInRange(adapter, maxDays) {
   return adapter.all(`SELECT dateKey, data FROM usageDaily WHERE dateKey >= ?`, [cutoffKey]);
 }
 
-export async function getUsageStats(period = "all") {
+export async function getUsageStats(period = "all", orgId = undefined) {
   const db = await getAdapter();
 
   const [{ getProviderConnections }, { getApiKeys }, { getProviderNodes }] = await Promise.all([
@@ -404,7 +416,7 @@ export async function getUsageStats(period = "all") {
   const stats = {
     totalRequests: 0,
     totalPromptTokens: 0, totalCompletionTokens: 0, totalCachedTokens: 0, totalCost: 0,
-    byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {},
+    byProvider: {}, byModel: {}, byAccount: {}, byApiKey: {}, byEndpoint: {}, byUser: {},
     last10Minutes: [],
     pending: pendingRequests,
     activeRequests: [],
@@ -452,7 +464,7 @@ export async function getUsageStats(period = "all") {
     }
   }
 
-  const useDailySummary = period !== "24h" && period !== "today";
+  const useDailySummary = period !== "24h" && period !== "today" && orgId === undefined;
 
   if (useDailySummary) {
     const periodDays = { "7d": 7, "30d": 30, "60d": 60 };
@@ -573,18 +585,34 @@ export async function getUsageStats(period = "all") {
       if (stats.byEndpoint[endpointKey] && new Date(ts) > new Date(stats.byEndpoint[endpointKey].lastUsed)) stats.byEndpoint[endpointKey].lastUsed = ts;
     }
   } else {
-    // 24h / today: live history
+    // 24h / today / specific orgId: live history
     let cutoff;
     if (period === "today") {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
       cutoff = startOfDay.toISOString();
+    } else if (period !== "all") {
+      const periodDays = { "7d": 7, "30d": 30, "60d": 60 };
+      const days = periodDays[period] || 1;
+      cutoff = new Date(Date.now() - days * 86400000).toISOString();
     } else {
-      cutoff = new Date(Date.now() - PERIOD_MS["24h"]).toISOString();
+      cutoff = new Date(0).toISOString(); // all time
     }
+    
+    const params = [cutoff];
+    let orgIdCond = "";
+    if (orgId !== undefined) {
+      if (orgId === null) {
+        orgIdCond = " AND orgId IS NULL";
+      } else {
+        orgIdCond = " AND orgId = ?";
+        params.push(orgId);
+      }
+    }
+    
     const filtered = db.all(
-      `SELECT timestamp, provider, model, connectionId, apiKey, endpoint, promptTokens, completionTokens, cost, tokens FROM usageHistory WHERE timestamp >= ?`,
-      [cutoff]
+      `SELECT timestamp, provider, model, connectionId, apiKey, endpoint, userId, promptTokens, completionTokens, cost, tokens FROM usageHistory WHERE timestamp >= ?${orgIdCond}`,
+      params
     );
 
     for (const r of filtered) {
@@ -660,6 +688,15 @@ export async function getUsageStats(period = "all") {
       const epe = stats.byEndpoint[epKey];
       epe.requests++; epe.promptTokens += promptTokens; epe.completionTokens += completionTokens; epe.cachedTokens += cachedTokens; epe.cost += entryCost;
       if (new Date(r.timestamp) > new Date(epe.lastUsed)) epe.lastUsed = r.timestamp;
+
+      if (r.userId) {
+        if (!stats.byUser[r.userId]) {
+          stats.byUser[r.userId] = { requests: 0, promptTokens: 0, completionTokens: 0, cachedTokens: 0, cost: 0, userId: r.userId, lastUsed: r.timestamp };
+        }
+        const u = stats.byUser[r.userId];
+        u.requests++; u.promptTokens += promptTokens; u.completionTokens += completionTokens; u.cachedTokens += cachedTokens; u.cost += entryCost;
+        if (new Date(r.timestamp) > new Date(u.lastUsed)) u.lastUsed = r.timestamp;
+      }
     }
   }
 

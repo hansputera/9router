@@ -24,13 +24,14 @@ function rowToConn(row) {
     email: row.email,
     priority: row.priority,
     isActive: row.isActive === 1 || row.isActive === true,
+    orgId: row.orgId,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
 }
 
 function connToRow(c) {
-  const { id, provider, authType, name, email, priority, isActive, createdAt, updatedAt, ...rest } = c;
+  const { id, provider, authType, name, email, priority, isActive, orgId, createdAt, updatedAt, ...rest } = c;
   encryptObjectFields(rest, SENSITIVE_CONNECTION_FIELDS);
   return {
     id,
@@ -40,6 +41,7 @@ function connToRow(c) {
     email: email ?? null,
     priority: priority ?? null,
     isActive: isActive === false ? 0 : 1,
+    orgId: orgId ?? null,
     data: stringifyJson(rest),
     createdAt,
     updatedAt,
@@ -49,13 +51,13 @@ function connToRow(c) {
 function upsert(db, c) {
   const r = connToRow(c);
   db.run(
-    `INSERT INTO providerConnections(id, provider, authType, name, email, priority, isActive, data, createdAt, updatedAt)
-     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO providerConnections(id, provider, authType, name, email, priority, isActive, orgId, data, createdAt, updatedAt)
+     VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        provider=excluded.provider, authType=excluded.authType, name=excluded.name,
        email=excluded.email, priority=excluded.priority, isActive=excluded.isActive,
-       data=excluded.data, updatedAt=excluded.updatedAt`,
-    [r.id, r.provider, r.authType, r.name, r.email, r.priority, r.isActive, r.data, r.createdAt, r.updatedAt]
+       orgId=excluded.orgId, data=excluded.data, updatedAt=excluded.updatedAt`,
+    [r.id, r.provider, r.authType, r.name, r.email, r.priority, r.isActive, r.orgId, r.data, r.createdAt, r.updatedAt]
   );
 }
 
@@ -76,6 +78,13 @@ export async function getProviderConnections(filter = {}) {
   const params = [];
   if (filter.provider) { where.push("provider = ?"); params.push(filter.provider); }
   if (filter.isActive !== undefined) { where.push("isActive = ?"); params.push(filter.isActive ? 1 : 0); }
+  if (filter.orgId !== undefined) { 
+    if (filter.orgId === null) {
+      where.push("orgId IS NULL");
+    } else {
+      where.push("orgId = ?"); params.push(filter.orgId);
+    }
+  }
   const sql = `SELECT * FROM providerConnections${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`;
   const rows = db.all(sql, params);
   const list = rows.map(rowToConn);
@@ -172,6 +181,7 @@ export async function createProviderConnection(data) {
       name: connectionName,
       priority: connectionPriority,
       isActive: data.isActive !== undefined ? data.isActive : true,
+      orgId: data.orgId || null,
       createdAt: now,
       updatedAt: now,
     };
