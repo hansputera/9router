@@ -1,6 +1,7 @@
 services:
-  9router:
-    image: decolua/9router:latest
+  # ─── Default: Node variant ──────────────────────────────────────────────
+  9router-node:
+    image: decolua/9router:node-latest
     container_name: 9router
     restart: always
     ports:
@@ -17,7 +18,33 @@ services:
       HEADROOM_URL: http://headroom:8787
     depends_on:
       - headroom
+    profiles:
+      - default
+      - node
 
+  # ─── Bun variant ────────────────────────────────────────────────────────
+  9router-bun:
+    image: decolua/9router:bun-latest
+    container_name: 9router-bun
+    restart: always
+    ports:
+      - "20128:20128"
+    volumes:
+      - 9router-bun-data:/app/data
+    env_file:
+      - .env
+    environment:
+      DATA_DIR: /app/data
+      PORT: "20128"
+      HOSTNAME: "0.0.0.0"
+      NODE_ENV: production
+      HEADROOM_URL: http://headroom:8787
+    depends_on:
+      - headroom
+    profiles:
+      - bun
+
+  # ─── Headroom sidecar (optional, used by both variants) ─────────────────
   headroom:
     image: ghcr.io/chopratejas/headroom:latest
     container_name: headroom
@@ -28,3 +55,5 @@ services:
 volumes:
   9router-data:
     name: 9router-data
+  9router-bun-data:
+    name: 9router-bun-data

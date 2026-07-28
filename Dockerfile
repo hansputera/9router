@@ -1,24 +1,42 @@
 # syntax=docker/dockerfile:1.7
-ARG NODE_IMAGE=node:22-alpine
-FROM ${NODE_IMAGE} AS base
-WORKDIR /app
+# Multi-runtime Dockerfile: build with --build-arg RUNTIME=node|bun
+ARG RUNTIME=node
 
-FROM base AS builder
-
+# ─── Base images ──────────────────────────────────────────────────────────
+FROM node:22-alpine AS base-node
 RUN apk --no-cache upgrade && apk --no-cache add python3 make g++ linux-headers
 
+FROM oven/bun:1-alpine AS base-bun
+RUN apk --no-cache upgrade
+
+# ─── Builder ──────────────────────────────────────────────────────────────
+FROM ${RUNTIME}-base AS builder
+ARG RUNTIME
+WORKDIR /app
+
 COPY package.json ./
-RUN --mount=type=cache,target=/root/.npm \
-  npm install
+RUN if [ "$RUNTIME" = "node" ]; then \
+      npm install --no-audit --no-fund; \
+    else \
+      bun install; \
+    fi
 
 COPY . ./
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN npm run build
+RUN if [ "$RUNTIME" = "node" ]; then \
+      npm run build; \
+    else \
+      bun run build; \
+    fi
 
-FROM ${NODE_IMAGE} AS runner
+# ─── Runner ───────────────────────────────────────────────────────────────
+FROM ${RUNTIME}-base AS runner
+ARG RUNTIME
 WORKDIR /app
 
 LABEL org.opencontainers.image.title="9router"
+LABEL org.opencontainers.image.description="9Router — local AI routing gateway"
+LABEL org.opencontainers.image.variant=${RUNTIME}
 
 ENV NODE_ENV=production
 ENV PORT=20128
@@ -26,28 +44,25 @@ ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATA_DIR=/app/data
 
+# Copy standalone output
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/custom-server.js ./custom-server.js
 COPY --from=builder /app/open-sse ./open-sse
-# Next file tracing can omit sibling files; MITM runs server.js as a separate process.
+
+# MITM and runtime deps
 COPY --from=builder /app/src/mitm ./src/mitm
-# Standalone node_modules may omit deps only required by the MITM child process.
 COPY --from=builder /app/node_modules/node-forge ./node_modules/node-forge
-# Ensure `next` is available at runtime in case tracing did not include it.
 COPY --from=builder /app/node_modules/next ./node_modules/next
 
-RUN mkdir -p /app/data && chown -R node:node /app && \
-  mkdir -p /app/data-home && chown node:node /app/data-home && \
-  ln -sf /app/data-home /root/.9router 2>/dev/null || true
+RUN mkdir -p /app/data && \
+    ln -sf /app/data /root/.9router 2>/dev/null || true
 
-# Fix permissions at runtime (handles mounted volumes)
-RUN apk --no-cache upgrade && apk --no-cache add su-exec && \
-  printf '#!/bin/sh\nchown -R node:node /app/data /app/data-home 2>/dev/null\nexec su-exec node "$@"\n' > /entrypoint.sh && \
-  chmod +x /entrypoint.sh
+# Runtime-agnostic launcher — picks bun or node
+RUN printf '#!/bin/sh\nif command -v bun >/dev/null 2>&1; then exec bun custom-server.js; else exec node custom-server.js; fi\n' > /launcher.sh && \
+    chmod +x /launcher.sh
 
 EXPOSE 20128
 
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["node", "custom-server.js"]
+CMD ["/launcher.sh"]

@@ -1,13 +1,21 @@
 # Docker
 
-Run 9Router in a container. Published image: [`decolua/9router`](https://hub.docker.com/r/decolua/9router) — multi-platform `linux/amd64` + `linux/arm64`.
+Run 9Router in a container. Published images: [`decolua/9router`](https://hub.docker.com/r/decolua/9router) — multi-platform `linux/amd64` + `linux/arm64`.
+
+**Two variants available:**
+
+| Image tag | Runtime | Base image | SQLite driver | Notes |
+|-----------|---------|------------|---------------|-------|
+| `:latest` / `:node-latest` | Node.js 22 | `node:22-alpine` | `better-sqlite3` | Default, production-proven |
+| `:bun-latest` | Bun 1 | `oven/bun:1-alpine` | `bun:sqlite` (native) | Faster startup + auth + HTTP |
 
 ---
 
-# 👤 For Users
+# For Users
 
 ## Quick start
 
+**Node variant (default):**
 ```bash
 docker run -d \
   -p 20128:20128 \
@@ -17,7 +25,27 @@ docker run -d \
   decolua/9router:latest
 ```
 
+**Bun variant (faster):**
+```bash
+docker run -d \
+  -p 20128:20128 \
+  -v "$HOME/.9router:/app/data" \
+  -e DATA_DIR=/app/data \
+  --name 9router \
+  decolua/9router:bun-latest
+```
+
 App listens on port `20128`. Open: http://localhost:20128
+
+## docker compose
+
+```bash
+# Node variant (default profile)
+docker compose up -d
+
+# Bun variant
+docker compose --profile bun up -d 9router-bun
+```
 
 ## Manage container
 
@@ -102,31 +130,47 @@ docker rm -f 9router
 
 ---
 
-# 🛠 For Developers
+# For Developers
 
-## Build image locally (test)
+## Build locally
 
 ```bash
-cd app && docker build -t 9router .
+# Node variant
+docker build --build-arg RUNTIME=node -t 9router .
+docker run --rm -p 20128:20128 -v "$HOME/.9router:/app/data" -e DATA_DIR=/app/data 9router
 
-docker run --rm -p 20128:20128 \
-  -v "$HOME/.9router:/app/data" \
-  -e DATA_DIR=/app/data \
-  9router
+# Bun variant
+docker build --build-arg RUNTIME=bun -t 9router-bun .
+docker run --rm -p 20128:20128 -v "$HOME/.9router:/app/data" -e DATA_DIR=/app/data 9router-bun
+```
+
+## Build both variants with Docker Bake
+
+```bash
+docker buildx bake --load      # build both locally
+docker buildx bake --push      # push both to registries
 ```
 
 ## Publish (automatic via CI)
 
-Push a git tag `v*` → GitHub Actions builds multi-platform (amd64+arm64) and pushes to:
-- `ghcr.io/decolua/9router:v{version}` + `:latest`
-- `decolua/9router:v{version}` + `:latest`
+Push a git tag `v*` → GitHub Actions builds multi-platform (amd64+arm64) Node + Bun images and pushes to:
+- Docker Hub: `decolua/9router:{tag}`, `decolua/9router:node-{tag}`, `decolua/9router:bun-{tag}`
+- GHCR: `ghcr.io/decolua/9router:{tag}`, etc.
 
 ```bash
 # Use scripts/release.js (recommended)
 node scripts/release.js "Release title" "Notes"
 
 # Or manually
-git tag v0.4.x && git push origin v0.4.x
+git tag v0.5.x && git push origin v0.5.x
 ```
 
-Workflow: `app/.github/workflows/docker-publish.yml`
+Workflow: `.github/workflows/docker-publish.yml`
+
+## CI required secrets
+
+| Secret | Purpose |
+|--------|---------|
+| `DOCKER_USERNAME` | Docker Hub login |
+| `DOCKER_PASSWORD` | Docker Hub token |
+| `GITHUB_TOKEN` | GHCR login (auto-provided) |
