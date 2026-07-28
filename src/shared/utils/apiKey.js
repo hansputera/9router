@@ -1,6 +1,11 @@
 import crypto from "crypto";
 
-const API_KEY_SECRET = process.env.API_KEY_SECRET || "endpoint-proxy-api-key-secret";
+const DEFAULT_KEY_SECRET = "endpoint-proxy-api-key-secret";
+const API_KEY_SECRET = process.env.API_KEY_SECRET || DEFAULT_KEY_SECRET;
+
+if (API_KEY_SECRET === DEFAULT_KEY_SECRET && process.env.NODE_ENV === "production") {
+  console.error("[API_KEY] WARNING: Using default API_KEY_SECRET. Set API_KEY_SECRET env var to a long random value in production.");
+}
 
 /**
  * Generate 6-char random keyId
