@@ -39,94 +39,127 @@ App listens on port `20128`. Open: http://localhost:20128
 
 ## docker compose
 
+### Prerequisites
+
+Create a `.env` file in the same directory as `docker-compose.yml`:
+
 ```bash
-# Node variant (default profile)
+cp .env.example .env
+```
+
+Required minimum env vars:
+
+```ini
+JWT_SECRET=change-me-to-a-long-random-secret
+INITIAL_PASSWORD=change-me
+```
+
+### Start 9Router
+
+**Node variant (default):**
+```bash
 docker compose up -d
+# Open http://localhost:20128
+```
 
-# Bun variant
+**Bun variant (faster):**
+```bash
 docker compose --profile bun up -d 9router-bun
+# Open http://localhost:20128
 ```
 
-## Manage container
+### View logs
 
 ```bash
-docker logs -f 9router        # view logs
-docker stop 9router           # stop
-docker start 9router          # start again
-docker rm -f 9router          # remove
+# All services
+docker compose logs -f
+
+# 9Router only
+docker compose logs -f 9router-node
+
+# Headroom only
+docker compose logs -f headroom
 ```
 
-## Data persistence
+### Stop and remove
 
 ```bash
--v "$HOME/.9router:/app/data" \
--e DATA_DIR=/app/data
+docker compose down
+# Add -v to also delete volumes (removes all data):
+docker compose down -v
 ```
 
-Without `DATA_DIR`, the app falls back to `~/.9router/` (macOS/Linux) or `%APPDATA%\9router\` (Windows). In the container, `DATA_DIR=/app/data` makes the bind mount work.
-
-Data layout under `$DATA_DIR/`:
-
-```text
-$DATA_DIR/
-├── db/
-│   ├── data.sqlite       # main SQLite database
-│   └── backups/          # auto backups
-└── ...                   # certs, logs, runtime configs
-```
-
-Host path: `$HOME/.9router/db/data.sqlite`
-Container path: `/app/data/db/data.sqlite`
-
-## Optional env vars
+### Update
 
 ```bash
-docker run -d \
-  -p 20128:20128 \
-  -v "$HOME/.9router:/app/data" \
-  -e DATA_DIR=/app/data \
-  -e PORT=20128 \
-  -e HOSTNAME=0.0.0.0 \
-  -e DEBUG=true \
-  --name 9router \
-  hansputera/9router-fork:latest
+docker compose pull
+docker compose up -d
 ```
 
-## Optional Headroom sidecar
+### Environment variables reference
 
-The 9Router image does not bundle Python or Headroom. To use Headroom in Docker, run it as a separate service and point 9Router at that proxy:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JWT_SECRET` | (auto-generated) | Secret for dashboard session cookies |
+| `INITIAL_PASSWORD` | `123456` | Default admin password |
+| `DATA_DIR` | `/app/data` | Data directory (mounted volume) |
+| `PORT` | `20128` | HTTP listen port |
+| `HOSTNAME` | `0.0.0.0` | Bind address |
+| `NODE_ENV` | `production` | Runtime environment |
+| `API_KEY_SECRET` | (auto-generated) | HMAC secret for API keys |
+| `MACHINE_ID_SALT` | (auto-generated) | Salt for machine ID |
+| `ENABLE_REQUEST_LOGS` | `false` | Enable request body logging |
+| `HEADROOM_URL` | (none) | Headroom sidecar URL |
+| `HTTP_PROXY` / `HTTPS_PROXY` | (none) | Outbound proxy for upstream calls |
 
-```yaml
-services:
-  9router:
-    image: hansputera/9router-fork:latest
-    ports:
-      - "20128:20128"
-    volumes:
-      - "$HOME/.9router:/app/data"
-    environment:
-      DATA_DIR: /app/data
-      HEADROOM_URL: http://headroom:8787
-    depends_on:
-      - headroom
+### Custom instance name & logo
 
-  headroom:
-    image: ghcr.io/chopratejas/headroom:latest
-    ports:
-      - "8787:8787"
+Add to your `.env`:
+
+```ini
+INSTANCE_NAME=My Team Gateway
+INSTANCE_LOGO_URL=https://example.com/logo.png
 ```
 
-In the dashboard, open `Endpoint` → `Token Saver` → `Headroom`, confirm the URL is `http://headroom:8787`, recheck status, then enable Headroom.
+Then run `docker compose up -d` to apply.
 
-If Headroom runs on the Docker host instead of as a sidecar, use `http://host.docker.internal:8787` on macOS/Windows. On Linux, add `--add-host=host.docker.internal:host-gateway` or the equivalent compose `extra_hosts` entry.
+### Use with Headroom sidecar
 
-## Update to latest
+Edit `.env` and add:
+
+```ini
+HEADROOM_URL=http://headroom:8787
+```
+
+Then start both services:
 
 ```bash
-docker pull hansputera/9router-fork:latest
-docker rm -f 9router
-# re-run the quick start command
+docker compose up -d
 ```
+
+In the dashboard, open **Endpoint** → **Token Saver** → **Headroom**, confirm the URL, recheck status, then enable Headroom.
+
+### Use without Headroom
+
+To run 9Router standalone without the Headroom sidecar:
+
+```bash
+docker compose run -d --profile node 9router-node
+# Or for Bun:
+docker compose run -d --profile bun 9router-bun
+```
+
+Or comment out the `depends_on: headroom` line and headroom service from the yml.
+
+### Production checklist
+
+- [ ] Set a strong `JWT_SECRET` in `.env`
+- [ ] Change `INITIAL_PASSWORD` from the default
+- [ ] Set `API_KEY_SECRET` to a long random value
+- [ ] Set `MACHINE_ID_SALT` to a unique value
+- [ ] Use a bind mount to persist data (already configured)
+- [ ] Run behind a reverse proxy for TLS termination (optional)
+- [ ] Restrict port `20128` to internal network if not exposing publicly
 
 ---
 
