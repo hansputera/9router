@@ -78,8 +78,13 @@ const normalize = (value) => {
  */
 function extractTokensViaBetterSqlite(dbPath) {
   // Dynamic require so the route stays importable even if native bindings fail
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const Database = require("better-sqlite3");
+  let Database;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    Database = require("better-sqlite3");
+  } catch {
+    return [];
+  }
   const db = new Database(dbPath, { readonly: true, fileMustExist: true });
 
   const query = (key) => {

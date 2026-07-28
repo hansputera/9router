@@ -1,5 +1,12 @@
-import Database from "better-sqlite3";
 import { PRAGMA_SQL } from "../schema.js";
+
+// Dynamic import so the module stays importable even if native bindings fail
+let Database;
+try {
+  Database = (await import("better-sqlite3")).default;
+} catch {
+  // Not installed — createBetterSqliteAdapter will never be called (driver chain falls through)
+}
 
 // Periodic checkpoint to keep WAL file small (avoid huge -wal/-shm growth)
 const CHECKPOINT_INTERVAL_MS = 60 * 1000;

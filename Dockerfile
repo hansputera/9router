@@ -3,10 +3,10 @@
 ARG RUNTIME=node
 
 # ─── Base images ──────────────────────────────────────────────────────────
-FROM node:22-alpine AS base-node
+FROM node:22-alpine AS node-base
 RUN apk --no-cache upgrade && apk --no-cache add python3 make g++ linux-headers
 
-FROM oven/bun:1-alpine AS base-bun
+FROM oven/bun:1-alpine AS bun-base
 RUN apk --no-cache upgrade
 
 # ─── Builder ──────────────────────────────────────────────────────────────
@@ -24,7 +24,7 @@ RUN if [ "$RUNTIME" = "node" ]; then \
 COPY . ./
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN if [ "$RUNTIME" = "node" ]; then \
-      npm run build; \
+      npm run build:node; \
     else \
       bun run build; \
     fi

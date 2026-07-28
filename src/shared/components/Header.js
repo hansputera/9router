@@ -1,6 +1,6 @@
 "use client";
 
-import { OrganizationSwitcher, UserButton, SignedIn } from "@clerk/nextjs";
+import { OrganizationSwitcher, UserButton } from "@clerk/nextjs";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -323,24 +323,22 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         </button>
         <ThemeToggle />
         <HeaderLanguage />
-        <SignedIn>
-          <OrganizationSwitcher 
-            hidePersonal={false}
-            appearance={{
-              elements: {
-                organizationSwitcherTrigger: "text-text-main hover:text-primary transition-colors py-1.5 px-3 rounded-lg border border-border bg-surface",
-              }
-            }}
-          />
-          <UserButton 
-            afterSignOutUrl="/sign-in"
-            appearance={{
-              elements: {
-                userButtonAvatarBox: "w-8 h-8 rounded-full border border-border"
-              }
-            }}
-          />
-        </SignedIn>
+        <OrganizationSwitcher 
+          hidePersonal={false}
+          appearance={{
+            elements: {
+              organizationSwitcherTrigger: "text-text-main hover:text-primary transition-colors py-1.5 px-3 rounded-lg border border-border bg-surface",
+            }
+          }}
+        />
+        <UserButton 
+          afterSignOutUrl="/sign-in"
+          appearance={{
+            elements: {
+              userButtonAvatarBox: "w-8 h-8 rounded-full border border-border"
+            }
+          }}
+        />
       </div>
       <DonateModal isOpen={donateOpen} onClose={() => setDonateOpen(false)} />
     </header>
