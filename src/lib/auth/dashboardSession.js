@@ -78,5 +78,7 @@ export async function verifyDashboardPassword(password) {
   const storedHash = settings?.password;
   if (storedHash) return bcrypt.compare(password, storedHash);
   const initialPassword = process.env.INITIAL_PASSWORD || DEFAULT_PASSWORD;
-  return password === initialPassword;
+  const pwBuf = Buffer.from(password, "utf8");
+  const initialBuf = Buffer.from(initialPassword, "utf8");
+  return pwBuf.length === initialBuf.length && crypto.timingSafeEqual(pwBuf, initialBuf);
 }

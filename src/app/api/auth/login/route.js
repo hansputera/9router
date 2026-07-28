@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSettings } from "@/lib/localDb";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { setDashboardAuthCookie } from "@/lib/auth/dashboardSession";
 import { isOidcConfigured } from "@/lib/auth/oidc";
@@ -47,9 +48,11 @@ export async function POST(request) {
     if (storedHash) {
       isValid = await bcrypt.compare(password, storedHash);
     } else {
-      // Use env var or default
+      // Use env var or default — timing-safe comparison for plaintext fallback
       const initialPassword = process.env.INITIAL_PASSWORD || "123456";
-      isValid = password === initialPassword;
+      const pwBuf = Buffer.from(password || "", "utf8");
+      const initialBuf = Buffer.from(initialPassword, "utf8");
+      isValid = pwBuf.length === initialBuf.length && crypto.timingSafeEqual(pwBuf, initialBuf);
     }
 
     if (isValid) {
