@@ -1,7 +1,13 @@
 import { EventEmitter } from "events";
+import crypto from "node:crypto";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
 import { getMeta, setMeta } from "../helpers/metaStore.js";
+
+function hashApiKey(key) {
+  if (!key || typeof key !== "string") return null;
+  return crypto.createHash("sha256").update(key).digest("hex");
+}
 
 function maskApiKey(key) {
   if (!key || typeof key !== "string") return null;
@@ -243,6 +249,9 @@ export async function saveRequestUsage(entry) {
     const db = await getAdapter();
 
     if (!entry.timestamp) entry.timestamp = new Date().toISOString();
+    if (entry.apiKey && typeof entry.apiKey === "string") {
+      entry.apiKey = hashApiKey(entry.apiKey);
+    }
     entry.cost = await calculateCost(entry.provider, entry.model, entry.tokens);
 
     const tokens = entry.tokens || {};
@@ -366,7 +375,7 @@ export async function getUsageStats(period = "all") {
   let allApiKeys = [];
   try { allApiKeys = await getApiKeys(); } catch {}
   const apiKeyMap = {};
-  for (const k of allApiKeys) apiKeyMap[k.key] = { name: k.name, id: k.id, createdAt: k.createdAt };
+  for (const k of allApiKeys) apiKeyMap[hashApiKey(k.key)] = { name: k.name, id: k.id, createdAt: k.createdAt };
 
   // recentRequests from live history (last 100 entries enough for 20 deduped)
   const recentRows = db.all(`SELECT timestamp, provider, model, tokens, status FROM usageHistory ORDER BY id DESC LIMIT 100`);
