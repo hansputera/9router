@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import { getAdapter } from "../driver.js";
 import { parseJson, stringifyJson } from "../helpers/jsonCol.js";
+import { encryptObjectFields, decryptObjectFields, SENSITIVE_CONNECTION_FIELDS } from "../helpers/fieldEncryption.js";
 
 const OPTIONAL_FIELDS = [
   "displayName", "email", "globalPriority", "defaultModel",
@@ -13,6 +14,7 @@ const OPTIONAL_FIELDS = [
 function rowToConn(row) {
   if (!row) return null;
   const extra = parseJson(row.data, {});
+  decryptObjectFields(extra, SENSITIVE_CONNECTION_FIELDS);
   return {
     ...extra,
     id: row.id,
@@ -29,6 +31,7 @@ function rowToConn(row) {
 
 function connToRow(c) {
   const { id, provider, authType, name, email, priority, isActive, createdAt, updatedAt, ...rest } = c;
+  encryptObjectFields(rest, SENSITIVE_CONNECTION_FIELDS);
   return {
     id,
     provider,
