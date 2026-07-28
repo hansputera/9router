@@ -49,6 +49,8 @@ export default function Sidebar({ onClose }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [shutdownCountdown, setShutdownCountdown] = useState(0);
   const [enableTranslator, setEnableTranslator] = useState(false);
+  const [instanceName, setInstanceName] = useState(APP_CONFIG.name);
+  const [instanceLogoUrl, setInstanceLogoUrl] = useState("");
   const { copied, copy } = useCopyToClipboard(2000);
 
   const INSTALL_CMD = UPDATER_CONFIG.installCmdLatest;
@@ -56,7 +58,11 @@ export default function Sidebar({ onClose }) {
   useEffect(() => {
     fetch("/api/settings")
       .then(res => res.json())
-      .then(data => { if (data.enableTranslator) setEnableTranslator(true); })
+      .then(data => {
+        if (data.enableTranslator) setEnableTranslator(true);
+        if (data.instanceName) setInstanceName(data.instanceName);
+        if (data.instanceLogoUrl) setInstanceLogoUrl(data.instanceLogoUrl);
+      })
       .catch(() => {});
   }, []);
 
@@ -120,12 +126,16 @@ export default function Sidebar({ onClose }) {
         {/* Logo */}
         <div className="px-6 py-4 flex flex-col gap-2">
           <Link href="/dashboard" className="flex items-center gap-3">
-            <div className="flex items-center justify-center size-9 rounded-[10px] bg-gradient-to-br from-brand-500 to-brand-700 shadow-[var(--shadow-warm)]">
-              <span className="material-symbols-outlined text-white text-[20px]">hub</span>
+            <div className="flex items-center justify-center size-9 rounded-[10px] bg-gradient-to-br from-brand-500 to-brand-700 shadow-[var(--shadow-warm)] overflow-hidden">
+              {instanceLogoUrl ? (
+                <img src={instanceLogoUrl} alt={instanceName} className="w-full h-full object-cover" />
+              ) : (
+                <span className="material-symbols-outlined text-white text-[20px]">hub</span>
+              )}
             </div>
             <div className="flex flex-col">
               <h1 className="text-lg font-semibold tracking-tight text-text-main">
-                {APP_CONFIG.name}
+                {instanceName}
               </h1>
               <span className="text-xs text-text-muted">v{APP_CONFIG.version}</span>
             </div>

@@ -44,6 +44,8 @@ const DEFAULT_SETTINGS = {
   ponytailEnabled: false,
   ponytailLevel: "full",
   pxpipeEnabled: false,
+  instanceName: "9Router Proxy",
+  instanceLogoUrl: "",
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,
   pxpipeTimeoutMs: 15000,

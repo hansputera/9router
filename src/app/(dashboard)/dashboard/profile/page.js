@@ -57,6 +57,10 @@ export default function ProfilePage() {
   const [proxyStatus, setProxyStatus] = useState({ type: "", message: "" });
   const [proxyLoading, setProxyLoading] = useState(false);
   const [proxyTestLoading, setProxyTestLoading] = useState(false);
+  const [instanceName, setInstanceName] = useState("");
+  const [instanceLogoUrl, setInstanceLogoUrl] = useState("");
+  const [brandingStatus, setBrandingStatus] = useState({ type: "", message: "" });
+  const [brandingLoading, setBrandingLoading] = useState(false);
 
   useEffect(() => {
     setLocale(getLocaleFromCookie());
@@ -67,6 +71,8 @@ export default function ProfilePage() {
       .then((res) => res.json())
       .then((data) => {
         setSettings(data);
+        setInstanceName(data?.instanceName || "9Router Proxy");
+        setInstanceLogoUrl(data?.instanceLogoUrl || "");
         setOidcForm({
           authMode: data?.authMode || "password",
           oidcIssuerUrl: data?.oidcIssuerUrl || "",
@@ -122,6 +128,28 @@ export default function ProfilePage() {
       setProxyStatus({ type: "error", message: "An error occurred" });
     } finally {
       setProxyLoading(false);
+    }
+  };
+
+  const saveBranding = async () => {
+    setBrandingLoading(true);
+    setBrandingStatus({ type: "", message: "" });
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instanceName, instanceLogoUrl }),
+      });
+      if (res.ok) {
+        setBrandingStatus({ type: "success", message: "Branding updated" });
+      } else {
+        const data = await res.json();
+        setBrandingStatus({ type: "error", message: data.error || "Failed to update branding" });
+      }
+    } catch {
+      setBrandingStatus({ type: "error", message: "An error occurred" });
+    } finally {
+      setBrandingLoading(false);
     }
   };
 
@@ -1098,6 +1126,46 @@ export default function ProfilePage() {
               onChange={updateObservabilityEnabled}
               disabled={loading}
             />
+          </div>
+        </Card>
+
+        {/* Branding */}
+        <Card>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-500 shrink-0">
+              <span className="material-symbols-outlined text-[20px]">palette</span>
+            </div>
+            <h3 className="text-base sm:text-lg font-semibold">Branding</h3>
+          </div>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <label className="font-medium text-sm sm:text-base">Instance Name</label>
+              <Input
+                placeholder="9Router Proxy"
+                value={instanceName}
+                onChange={(e) => setInstanceName(e.target.value)}
+              />
+              <p className="text-xs text-text-muted">Used in sidebar and page title</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="font-medium text-sm sm:text-base">Logo URL</label>
+              <Input
+                placeholder="https://example.com/logo.png"
+                value={instanceLogoUrl}
+                onChange={(e) => setInstanceLogoUrl(e.target.value)}
+              />
+              <p className="text-xs text-text-muted">Custom logo replaces the hub icon in sidebar</p>
+            </div>
+            {brandingStatus.message && (
+              <p className={`text-xs sm:text-sm ${brandingStatus.type === "error" ? "text-red-500" : "text-green-500"}`}>
+                {brandingStatus.message}
+              </p>
+            )}
+            <div className="pt-2">
+              <Button variant="primary" onClick={saveBranding} loading={brandingLoading} disabled={loading}>
+                Save Branding
+              </Button>
+            </div>
           </div>
         </Card>
 
