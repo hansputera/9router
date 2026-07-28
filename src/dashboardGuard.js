@@ -33,6 +33,8 @@ const PUBLIC_API_PATHS = [
   "/api/auth/oidc",
   "/api/version",
   "/api/settings/require-login",
+  "/sign-in",
+  "/sign-up",
 ];
 
 // Public top-level prefixes (LLM API endpoints with their own API key auth).
@@ -143,10 +145,10 @@ async function canAccessPublicLlmApi(request) {
   return await hasValidApiKey(request);
 }
 
-async function canAccessLocalOnlyRoute(request) {
+async function canAccessLocalOnlyRoute(request, auth) {
   if (await hasValidCliToken(request)) return true;
   // Browser on host: loopback Host + Origin (blocks tunnel/CSRF) + auth (JWT or requireLogin=false)
-  if (isLocalRequest(request) && await isAuthenticated(request)) return true;
+  if (isLocalRequest(request) && await isAuthenticated(request, auth)) return true;
   return false;
 }
 
@@ -164,7 +166,13 @@ async function loadSettings() {
   }
 }
 
-async function isAuthenticated(request) {
+async function isAuthenticated(request, auth) {
+  if (auth) {
+    try {
+      const authObj = await auth();
+      if (authObj?.userId) return true;
+    } catch {}
+  }
   if (await hasValidToken(request)) return true;
   const settings = await loadSettings();
   if (settings && settings.requireLogin === false) return true;
@@ -184,12 +192,12 @@ export const __test__ = {
   canAccessLocalOnlyRoute,
 };
 
-export async function proxy(request) {
+export async function proxy(request, auth) {
   const { pathname } = request.nextUrl;
 
   // Local-only gate for spawn-capable / host-secret routes.
   if (LOCAL_ONLY_PATHS.some((p) => pathname.startsWith(p))) {
-    if (!(await canAccessLocalOnlyRoute(request))) {
+    if (!(await canAccessLocalOnlyRoute(request, auth))) {
       return NextResponse.json({ error: "Local only: CLI token required" }, { status: 403 });
     }
   }
@@ -209,7 +217,7 @@ export async function proxy(request) {
   // Deny-by-default for /api/* — public allow-list bypasses, everything else requires auth.
   if (pathname.startsWith("/api/")) {
     if (isPublicApi(pathname)) return NextResponse.next();
-    if (await hasValidCliToken(request) || await isAuthenticated(request))
+    if (await hasValidCliToken(request) || await isAuthenticated(request, auth))
       return NextResponse.next();
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -231,7 +239,7 @@ export async function proxy(request) {
           const tunnelHost = settings.tunnelUrl ? new URL(settings.tunnelUrl).hostname.toLowerCase() : "";
           const tailscaleHost = settings.tailscaleUrl ? new URL(settings.tailscaleUrl).hostname.toLowerCase() : "";
           if ((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost)) {
-            return NextResponse.redirect(new URL("/login", request.url));
+            return NextResponse.redirect(new URL("/sign-in", request.url));
           }
         }
       }
@@ -242,17 +250,12 @@ export async function proxy(request) {
     // If login not required, allow through
     if (!requireLogin) return NextResponse.next();
 
-    // Verify JWT token
-    const token = request.cookies.get("auth_token")?.value;
-    if (token) {
-      if (await verifyDashboardAuthToken(token)) {
-        return NextResponse.next();
-      } else {
-        return NextResponse.redirect(new URL("/login", request.url));
-      }
+    // Verify Clerk Auth or legacy token
+    if (await isAuthenticated(request, auth)) {
+      return NextResponse.next();
     }
 
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(new URL("/sign-in", request.url));
   }
 
   // Redirect / to /dashboard if logged in, or /dashboard if it's the root
