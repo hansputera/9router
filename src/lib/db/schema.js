@@ -3,7 +3,7 @@
 // pre-change safety backup in migrate.js: when the stored version is lower,
 // one lightweight DB backup is taken before applying schema changes. Forgetting
 // to bump only skips that backup — it does NOT break the additive auto-sync.
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const PRAGMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -161,6 +161,38 @@ export const TABLES = {
       "CREATE INDEX IF NOT EXISTS idx_rd_provider ON requestDetails(provider)",
       "CREATE INDEX IF NOT EXISTS idx_rd_model ON requestDetails(model)",
       "CREATE INDEX IF NOT EXISTS idx_rd_conn ON requestDetails(connectionId)",
+    ],
+  },
+  users: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      name: "TEXT",
+      email: "TEXT UNIQUE",
+      image: "TEXT",
+      createdAt: "TEXT NOT NULL",
+    },
+    indexes: ["CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)"],
+  },
+  teams: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      name: "TEXT NOT NULL",
+      slug: "TEXT UNIQUE",
+      createdAt: "TEXT NOT NULL",
+    },
+    indexes: ["CREATE INDEX IF NOT EXISTS idx_teams_slug ON teams(slug)"],
+  },
+  team_members: {
+    columns: {
+      id: "TEXT PRIMARY KEY",
+      teamId: "TEXT NOT NULL",
+      userId: "TEXT NOT NULL",
+      role: "TEXT NOT NULL DEFAULT 'member'",
+      createdAt: "TEXT NOT NULL",
+    },
+    indexes: [
+      "CREATE INDEX IF NOT EXISTS idx_tm_team ON team_members(teamId)",
+      "CREATE INDEX IF NOT EXISTS idx_tm_user ON team_members(userId)",
     ],
   },
 };

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { getUsageStats } from "@/lib/usageDb";
 
 const VALID_PERIODS = new Set(["today", "24h", "7d", "30d", "60d", "all"]);
@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request) {
   try {
-    const { orgId } = await auth();
+    const session = await auth();
+    const orgId = session?.user?.orgId || null;
     const { searchParams } = new URL(request.url);
     const period = searchParams.get("period") || "7d";
 

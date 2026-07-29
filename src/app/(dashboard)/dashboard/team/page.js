@@ -1,65 +1,64 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, Button } from "@/shared/components";
+import { useSession } from "next-auth/react";
+import { Card, Button, Input } from "@/shared/components";
 
 export default function TeamPage() {
-  const [OrgProfile, setOrgProfile] = useState(null);
-  const [CreateOrg, setCreateOrg] = useState(null);
-  const [hasOrg, setHasOrg] = useState(false);
+  const { data: session } = useSession();
+  const [teams, setTeams] = useState([]);
+  const [selectedTeam, setSelectedTeam] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [createName, setCreateName] = useState("");
   const [loading, setLoading] = useState(true);
-  const [hasClerk, setHasClerk] = useState(null);
 
-  useEffect(() => {
-    const ck = typeof window !== "undefined" && (window.__CLERK_ENABLED__ || !!window.__PUBLISHABLE_KEY__);
-    setHasClerk(!!ck);
+  const loadTeams = async () => {
+    try {
+      const res = await fetch("/api/auth/me");
+      const data = await res.json();
+      if (data.teams) setTeams(data.teams);
+    } catch {}
     setLoading(false);
-    if (!ck) return;
-    import("@clerk/nextjs").then((mod) => {
-      setOrgProfile(() => mod.OrganizationProfile);
-      setCreateOrg(() => mod.CreateOrganization);
-    });
-  }, []);
+  };
 
-  if (!hasClerk) {
-    return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-0">
-        <Card>
-          <div className="flex flex-col items-center gap-4 py-8 text-center">
-            <div className="size-12 rounded-full bg-blue-500/10 text-blue-500 flex items-center justify-center">
-              <span className="material-symbols-outlined text-[28px]">group</span>
-            </div>
-            <h2 className="text-xl font-semibold">Team Management</h2>
-            <p className="text-text-muted max-w-md">
-              Team features require Clerk authentication. Set <code className="bg-sidebar px-1 rounded">NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY</code> and <code className="bg-sidebar px-1 rounded">CLERK_SECRET_KEY</code> in your <code className="bg-sidebar px-1 rounded">.env</code> to enable.
-            </p>
-            <p className="text-sm text-text-muted">
-              Sign up at <a href="https://dashboard.clerk.com" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">dashboard.clerk.com</a> — free tier available.
-            </p>
-          </div>
-        </Card>
-      </div>
-    );
-  }
+  const loadMembers = async (teamId) => {
+    try {
+      const res = await fetch(`/api/teams/${teamId}/members`);
+      if (res.ok) setMembers(await res.json());
+    } catch {}
+  };
 
-  return <TeamContent OrgProfile={OrgProfile} CreateOrg={CreateOrg} />;
-}
+  useEffect(() => { loadTeams(); }, []);
+  useEffect(() => { if (selectedTeam) loadMembers(selectedTeam.id); }, [selectedTeam]);
 
-function TeamContent({ OrgProfile, CreateOrg }) {
-  const [showCreate, setShowCreate] = useState(false);
-  const [orgList, setOrgList] = useState([]);
+  const createTeam = async () => {
+    if (!createName.trim()) return;
+    try {
+      const res = await fetch("/api/teams", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: createName.trim() }),
+      });
+      if (res.ok) {
+        setCreateName("");
+        loadTeams();
+      }
+    } catch {}
+  };
 
-  useEffect(() => {
-    if (!OrgProfile) return;
-    import("@clerk/nextjs").then((mod) => {
-      try {
-        const list = mod.useOrganizationList();
-        // We can't call hooks conditionally, so we use a different approach
-      } catch {}
-    });
-  }, [OrgProfile]);
+  const removeMember = async (userId) => {
+    if (!selectedTeam) return;
+    try {
+      await fetch(`/api/teams/${selectedTeam.id}/members`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      loadMembers(selectedTeam.id);
+    } catch {}
+  };
 
-  if (!OrgProfile) {
+  if (loading) {
     return (
       <div className="max-w-2xl mx-auto px-4 sm:px-0 flex justify-center py-12">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
@@ -67,45 +66,132 @@ function TeamContent({ OrgProfile, CreateOrg }) {
     );
   }
 
+  const isAdmin = selectedTeam?.role === "admin";
+  const currentOrgId = session?.user?.orgId;
+
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-0">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-2xl mx-auto px-4 sm:px-0 flex flex-col gap-6">
+      <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Team</h1>
-          <p className="text-text-muted text-sm mt-1">Manage your organization members and settings</p>
+          <p className="text-text-muted text-sm mt-1">Manage your organizations and members</p>
         </div>
-        {CreateOrg && (
-          <Button variant="primary" icon="add" onClick={() => setShowCreate(true)}>
-            Create Team
-          </Button>
-        )}
       </div>
 
-      <Card padding="none">
-        <OrgProfile
-          appearance={{
-            elements: {
-              rootBox: "w-full border-0 shadow-none",
-              card: "border-0 shadow-none",
-              navbar: "hidden",
-              pageScrollBox: "p-0",
-            },
-          }}
-        />
+      {/* Create team */}
+      <Card>
+        <h3 className="font-semibold mb-3">Create Team</h3>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Team name"
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && createTeam()}
+          />
+          <Button variant="primary" onClick={createTeam} disabled={!createName.trim()}>
+            Create
+          </Button>
+        </div>
       </Card>
 
-      {showCreate && CreateOrg && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="relative bg-surface rounded-xl p-6 w-full max-w-md">
-            <button
-              onClick={() => setShowCreate(false)}
-              className="absolute top-3 right-3 text-text-muted hover:text-text-main"
-            >
-              <span className="material-symbols-outlined">close</span>
-            </button>
-            <CreateOrg />
+      {/* Team list */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {teams.length === 0 && (
+          <Card className="col-span-full">
+            <p className="text-text-muted text-sm text-center py-4">No teams yet. Create one above.</p>
+          </Card>
+        )}
+        {teams.map((team) => (
+          <Card
+            key={team.id}
+            padding="sm"
+            className={`cursor-pointer transition-colors ${selectedTeam?.id === team.id ? "ring-2 ring-primary" : "hover:bg-surface-2"}`}
+            onClick={() => setSelectedTeam(team)}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium">{team.name}</p>
+                <p className="text-xs text-text-muted">{team.role === "admin" ? "Admin" : "Member"}</p>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded-full ${team.id === currentOrgId ? "bg-green-500/10 text-green-500" : "bg-surface text-text-muted"}`}>
+                {team.id === currentOrgId ? "Active" : ""}
+              </span>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Team members */}
+      {selectedTeam && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold">{selectedTeam.name} — Members</h3>
+            {selectedTeam.id !== currentOrgId && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  await fetch("/api/auth/me", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ activeOrgId: selectedTeam.id }),
+                  });
+                  window.location.reload();
+                }}
+              >
+                Switch to this team
+              </Button>
+            )}
           </div>
-        </div>
+
+          {members.length === 0 ? (
+            <p className="text-text-muted text-sm">Loading members...</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {members.map((m) => (
+                <div key={m.id} className="flex items-center justify-between p-3 rounded-lg bg-bg border border-border">
+                  <div className="flex items-center gap-3">
+                    {m.image ? (
+                      <img src={m.image} alt="" className="w-8 h-8 rounded-full" />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">
+                        {(m.name || m.email || "U")[0]}
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">{m.name || m.email || "Unknown"}</p>
+                      <p className="text-xs text-text-muted">{m.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${m.role === "admin" ? "bg-amber-500/10 text-amber-500" : "bg-surface text-text-muted"}`}>
+                      {m.role === "admin" ? "Admin" : "Member"}
+                    </span>
+                    {isAdmin && m.userId !== session?.user?.id && (
+                      <button
+                        onClick={() => removeMember(m.userId)}
+                        className="text-xs text-red-500 hover:text-red-600 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isAdmin && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-xs text-text-muted mb-2">
+                Share this team ID with users who already have an account:
+              </p>
+              <code className="text-xs bg-bg px-2 py-1 rounded border border-border font-mono break-all">
+                {selectedTeam.id}
+              </code>
+            </div>
+          )}
+        </Card>
       )}
     </div>
   );

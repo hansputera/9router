@@ -8,7 +8,7 @@ import ProviderIcon from "@/shared/components/ProviderIcon";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
 import ThemeToggle from "@/shared/components/ThemeToggle";
 import DonateModal from "@/shared/components/DonateModal";
-import ClerkHeaderSlot from "@/shared/components/ClerkHeaderSlot";
+import AuthHeaderSlot from "@/shared/components/AuthHeaderSlot";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers";
@@ -184,7 +184,6 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   const [displayName, setDisplayName] = useState("");
   const [loginMethod, setLoginMethod] = useState("");
   const [donateOpen, setDonateOpen] = useState(false);
-  const [clerkEnabled, setClerkEnabled] = useState(false);
 
   // Memoize page info to prevent unnecessary recalculations
   const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
@@ -195,10 +194,6 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
 
     async function loadAuthStatus() {
       try {
-        // Detect Clerk from the server-rendered global (set in layout.js <head>)
-        const isClerk = typeof window !== "undefined" && (window.__CLERK_ENABLED__ || !!window.__PUBLISHABLE_KEY__);
-        if (!cancelled) setClerkEnabled(isClerk);
-
         const res = await fetch("/api/auth/status", { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
@@ -328,7 +323,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         </button>
         <ThemeToggle />
         <HeaderLanguage />
-        <ClerkHeaderSlot enabled={clerkEnabled} />
+        <AuthHeaderSlot />
       </div>
       <DonateModal isOpen={donateOpen} onClose={() => setDonateOpen(false)} />
     </header>

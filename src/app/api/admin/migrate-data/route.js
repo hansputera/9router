@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { getAdapter } from "@/lib/db/driver";
 
 export async function POST(request) {
   try {
-    const { userId, orgId, orgRole } = await auth();
+    const session = await auth();
+    const userId = session?.user?.id;
+    const orgId = session?.user?.orgId;
     
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -14,7 +16,7 @@ export async function POST(request) {
       return NextResponse.json({ error: "Please select an organization first to migrate data to." }, { status: 400 });
     }
     
-    if (orgRole !== "org:admin") {
+    if (session?.user?.orgRole !== "admin") {
       return NextResponse.json({ error: "Only Organization Admins can migrate legacy data." }, { status: 403 });
     }
     

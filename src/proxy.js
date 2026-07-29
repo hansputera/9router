@@ -1,26 +1,13 @@
+import { auth } from "@/auth";
 import { proxy as dashboardProxy } from "./dashboardGuard";
 
-const clerkKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-let clerkInit = null;
-
-async function getClerkMiddleware() {
-  if (!clerkKey) return null;
-  if (clerkInit) return clerkInit;
-  try {
-    const { clerkMiddleware } = await import("@clerk/nextjs/server");
-    clerkInit = clerkMiddleware(async (auth, request) => {
-      return dashboardProxy(request, auth);
-    });
-  } catch (e) {
-    console.error("[proxy] Clerk middleware init failed:", e.message);
-    clerkInit = null;
-  }
-  return clerkInit;
-}
+const authEnabled = !!(process.env.AUTH_SECRET || process.env.AUTH_GITHUB_ID || process.env.AUTH_GOOGLE_ID);
 
 export default async function middleware(request) {
-  const clerk = await getClerkMiddleware();
-  if (clerk) return clerk(request);
+  if (authEnabled) {
+    const session = await auth();
+    return dashboardProxy(request, session);
+  }
   return dashboardProxy(request, null);
 }
 

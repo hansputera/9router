@@ -1,36 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const [SignUp, setSignUp] = useState(null);
-  const [hasClerk, setHasClerk] = useState(null);
+  const { status } = useSession();
 
   useEffect(() => {
-    const hasKey = !!(window.__CLERK_ENABLED__ || window.__PUBLISHABLE_KEY__);
-    setHasClerk(hasKey);
-    if (!hasKey) {
-      router.replace("/login");
-      return;
+    if (status === "authenticated") {
+      router.replace("/dashboard");
+    } else if (status === "unauthenticated") {
+      router.replace("/sign-in");
     }
-    import("@clerk/nextjs")
-      .then((mod) => setSignUp(() => mod.SignUp))
-      .catch(() => router.replace("/login"));
-  }, [router]);
-
-  if (hasClerk === null || (!hasClerk && !SignUp) || (hasClerk && !SignUp)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
-  }
+  }, [status, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <SignUp routing="hash" />
+    <div className="min-h-screen flex items-center justify-center bg-bg p-4">
+      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
     </div>
   );
 }

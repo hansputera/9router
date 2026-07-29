@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth } from "@/auth";
 import { getApiKeys, createApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 
@@ -20,7 +20,9 @@ export async function GET() {
 // POST /api/keys - Create new API key
 export async function POST(request) {
   try {
-    const { userId, orgId } = await auth();
+    const session = await auth();
+  const userId = session?.user?.id || null;
+  const orgId = session?.user?.orgId || null;
     const body = await request.json();
     const { name } = body;
 

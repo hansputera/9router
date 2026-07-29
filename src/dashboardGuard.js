@@ -22,7 +22,7 @@ async function hasValidCliToken(request) {
   return tokenBuf.length === expectedBuf.length && crypto.timingSafeEqual(tokenBuf, expectedBuf);
 }
 
-const CLERK_CONFIGURED = typeof process !== "undefined" && !!(process.env?.CLERK_PUBLISHABLE_KEY || process.env?.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+const CLERK_CONFIGURED = typeof process !== "undefined" && !!(process.env?.AUTH_SECRET || process.env?.AUTH_GITHUB_ID || process.env?.AUTH_GOOGLE_ID);
 const LOGIN_PATH = CLERK_CONFIGURED ? "/sign-in" : "/login";
 const PUBLIC_API_PATHS = [
   "/api/health",
@@ -168,13 +168,8 @@ async function loadSettings() {
   }
 }
 
-async function isAuthenticated(request, auth) {
-  if (auth) {
-    try {
-      const authObj = await auth();
-      if (authObj?.userId) return true;
-    } catch {}
-  }
+async function isAuthenticated(request, session) {
+  if (session?.user?.id) return true;
   if (await hasValidToken(request)) return true;
   const settings = await loadSettings();
   if (settings && settings.requireLogin === false) return true;
