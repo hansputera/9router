@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { authOptions } from "@/auth"
+import { getServerSession } from "next-auth";
 import { getTeamMembers, addTeamMember, removeTeamMember } from "@/lib/db/auth/teamsRepo";
 
 export async function GET(request, { params }) {
@@ -9,7 +10,7 @@ export async function GET(request, { params }) {
 }
 
 export async function POST(request, { params }) {
-  const session = await auth();
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { teamId } = await params;
@@ -23,7 +24,7 @@ export async function POST(request, { params }) {
 }
 
 export async function DELETE(request, { params }) {
-  const session = await auth();
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { teamId } = await params;

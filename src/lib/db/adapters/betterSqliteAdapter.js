@@ -1,20 +1,14 @@
 import { PRAGMA_SQL } from "../schema.js";
 
-// Dynamic import so the module stays importable even if native bindings fail
-let Database;
-try {
-  Database = (await import("better-sqlite3")).default;
-} catch {
-  // Not installed — createBetterSqliteAdapter will never be called (driver chain falls through)
-}
-
-// Periodic checkpoint to keep WAL file small (avoid huge -wal/-shm growth)
-const CHECKPOINT_INTERVAL_MS = 60 * 1000;
+// No module-level require of better-sqlite3 — only loaded when the function is called.
+// This prevents turbopack from trying to resolve it at build time.
 
 export function createBetterSqliteAdapter(filePath) {
+  // Base64-hide module name from turbopack static analysis
+  const modName = Buffer.from("YmV0dGVyLXNxbGl0ZTM=", "base64").toString();
+  const Database = require(modName);
   const db = new Database(filePath);
   db.exec(PRAGMA_SQL);
-  // Schema is created/synced by migrate.js after adapter init
 
   const stmtCache = new Map();
 
@@ -27,7 +21,8 @@ export function createBetterSqliteAdapter(filePath) {
     return stmt;
   }
 
-  // Truncate WAL periodically so file stays small for backup/copy
+  // Periodic checkpoint to keep WAL file small
+  const CHECKPOINT_INTERVAL_MS = 60 * 1000;
   const checkpointTimer = setInterval(() => {
     try { db.pragma("wal_checkpoint(TRUNCATE)"); } catch {}
   }, CHECKPOINT_INTERVAL_MS);
@@ -39,11 +34,9 @@ export function createBetterSqliteAdapter(filePath) {
     try { db.close(); } catch {}
   }
 
-  // Ensure WAL is flushed and -wal/-shm files removed on shutdown
-  const onShutdown = () => gracefulClose();
-  process.once("beforeExit", onShutdown);
-  process.once("SIGINT", () => { onShutdown(); process.exit(0); });
-  process.once("SIGTERM", () => { onShutdown(); process.exit(0); });
+  process.once("beforeExit", gracefulClose);
+  process.once("SIGINT", () => { gracefulClose(); process.exit(0); });
+  process.once("SIGTERM", () => { gracefulClose(); process.exit(0); });
 
   return {
     driver: "better-sqlite3",

@@ -20,7 +20,9 @@ async function tryBetterSqlite() {
   // Skip on Bun — better-sqlite3 native bindings unsupported
   if (process.versions.bun) return null;
   try {
-    const { createBetterSqliteAdapter } = await import("./adapters/betterSqliteAdapter.js");
+    // Dynamic path keeps turbopack from tracing the dependency graph
+    const path = "./adapters/betterSqliteAdapter.js";
+    const { createBetterSqliteAdapter } = await import(path);
     return createBetterSqliteAdapter(DATA_FILE);
   } catch (e) {
     console.warn(`[DB] better-sqlite3 unavailable: ${e.message}`);

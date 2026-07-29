@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { authOptions } from "@/auth"
+import { getServerSession } from "next-auth";
 import { getApiKeys, createApiKey } from "@/lib/localDb";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 // GET /api/keys - List API keys
 export async function GET() {
   try {
-    const { orgId } = await auth();
+    const { orgId } = await getServerSession(authOptions);
     const keys = await getApiKeys({ orgId: orgId || null });
     return NextResponse.json({ keys });
   } catch (error) {
@@ -20,7 +21,7 @@ export async function GET() {
 // POST /api/keys - Create new API key
 export async function POST(request) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
   const userId = session?.user?.id || null;
   const orgId = session?.user?.orgId || null;
     const body = await request.json();

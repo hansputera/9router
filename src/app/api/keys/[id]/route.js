@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { authOptions } from "@/auth"
+import { getServerSession } from "next-auth";
 import { deleteApiKey, getApiKeyById, updateApiKey } from "@/lib/localDb";
 
 // GET /api/keys/[id] - Get single key
 export async function GET(request, { params }) {
   try {
-    const session = await auth(); const orgId = session?.user?.orgId || null;
+    const session = await getServerSession(authOptions); const orgId = session?.user?.orgId || null;
     const { id } = await params;
     const key = await getApiKeyById(id);
     if (!key || key.orgId !== (orgId || null)) {
@@ -21,7 +22,7 @@ export async function GET(request, { params }) {
 // PUT /api/keys/[id] - Update key
 export async function PUT(request, { params }) {
   try {
-    const session = await auth(); const orgId = session?.user?.orgId || null;
+    const session = await getServerSession(authOptions); const orgId = session?.user?.orgId || null;
     const { id } = await params;
     const body = await request.json();
     const { isActive } = body;
@@ -46,7 +47,7 @@ export async function PUT(request, { params }) {
 // DELETE /api/keys/[id] - Delete API key
 export async function DELETE(request, { params }) {
   try {
-    const session = await auth(); const orgId = session?.user?.orgId || null;
+    const session = await getServerSession(authOptions); const orgId = session?.user?.orgId || null;
     const { id } = await params;
 
     const existing = await getApiKeyById(id);

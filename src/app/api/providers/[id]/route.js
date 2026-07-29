@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { authOptions } from "@/auth"
+import { getServerSession } from "next-auth";
 import {
   getProviderConnectionById,
   getProxyPoolById,
@@ -87,7 +88,7 @@ export async function GET(request, { params }) {
 // PUT /api/providers/[id] - Update connection
 export async function PUT(request, { params }) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (session?.user?.orgRole !== "admin" && session?.user?.orgId) {
       return NextResponse.json({ error: "Only team admins can edit providers" }, { status: 403 });
     }
@@ -180,7 +181,7 @@ export async function PUT(request, { params }) {
 // DELETE /api/providers/[id] - Delete connection
 export async function DELETE(request, { params }) {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     if (session?.user?.orgRole !== "admin" && session?.user?.orgId) {
       return NextResponse.json({ error: "Only team admins can delete providers" }, { status: 403 });
     }

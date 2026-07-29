@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { authOptions } from "@/auth"
+import { getServerSession } from "next-auth";
 import { createTeam } from "@/lib/db/auth/teamsRepo";
 
 export async function POST(request) {
-  const session = await auth();
+  const session = await getServerSession(authOptions);
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { name } = await request.json();

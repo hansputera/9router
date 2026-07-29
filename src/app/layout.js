@@ -11,6 +11,9 @@ import { RuntimeI18nProvider } from "@/i18n/RuntimeI18nProvider";
 
 initConsoleLogCapture();
 
+// Force all pages dynamic — SessionProvider context unavailable during static generation
+export const dynamic = "force-dynamic";
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",

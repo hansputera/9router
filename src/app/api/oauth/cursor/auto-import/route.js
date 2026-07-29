@@ -81,7 +81,7 @@ function extractTokensViaBetterSqlite(dbPath) {
   let Database;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    Database = require("better-sqlite3");
+    Database = eval('require("better-sqlite3")');
   } catch {
     return [];
   }

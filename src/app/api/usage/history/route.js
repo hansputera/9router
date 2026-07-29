@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { authOptions } from "@/auth"
+import { getServerSession } from "next-auth";
 import { getUsageStats } from "@/lib/usageDb";
 
 export async function GET() {
   try {
-    const session = await auth();
+    const session = await getServerSession(authOptions);
     const orgId = session?.user?.orgId || null;
     const stats = await getUsageStats("all", orgId || null);
     return NextResponse.json(stats);
