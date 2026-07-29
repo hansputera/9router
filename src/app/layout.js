@@ -29,7 +29,7 @@ export const viewport = {
   themeColor: "#0a0a0a",
 };
 
-const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISHABLE_KEY;
+const clerkPublishableKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const clerkEnabled = !!clerkPublishableKey;
 
 function AuthProvider({ children }) {

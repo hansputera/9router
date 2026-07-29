@@ -22,7 +22,7 @@ async function hasValidCliToken(request) {
   return tokenBuf.length === expectedBuf.length && crypto.timingSafeEqual(tokenBuf, expectedBuf);
 }
 
-const CLERK_CONFIGURED = typeof process !== "undefined" && !!process.env?.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const CLERK_CONFIGURED = typeof process !== "undefined" && !!(process.env?.CLERK_PUBLISHABLE_KEY || process.env?.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 const LOGIN_PATH = CLERK_CONFIGURED ? "/sign-in" : "/login";
 const PUBLIC_API_PATHS = [
   "/api/health",

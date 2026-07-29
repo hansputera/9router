@@ -1,6 +1,6 @@
 import { proxy as dashboardProxy } from "./dashboardGuard";
 
-const clerkKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const clerkKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 let clerkInit = null;
 
 async function getClerkMiddleware() {
