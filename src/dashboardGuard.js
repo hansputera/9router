@@ -22,7 +22,8 @@ async function hasValidCliToken(request) {
   return tokenBuf.length === expectedBuf.length && crypto.timingSafeEqual(tokenBuf, expectedBuf);
 }
 
-// Public API paths — no auth required (LLM API has its own key auth inside handler).
+const CLERK_CONFIGURED = typeof process !== "undefined" && !!process.env?.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const LOGIN_PATH = CLERK_CONFIGURED ? "/sign-in" : "/login";
 const PUBLIC_API_PATHS = [
   "/api/health",
   "/api/init",
@@ -33,6 +34,7 @@ const PUBLIC_API_PATHS = [
   "/api/auth/oidc",
   "/api/version",
   "/api/settings/require-login",
+  "/login",
   "/sign-in",
   "/sign-up",
 ];
@@ -239,7 +241,7 @@ export async function proxy(request, auth) {
           const tunnelHost = settings.tunnelUrl ? new URL(settings.tunnelUrl).hostname.toLowerCase() : "";
           const tailscaleHost = settings.tailscaleUrl ? new URL(settings.tailscaleUrl).hostname.toLowerCase() : "";
           if ((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost)) {
-            return NextResponse.redirect(new URL("/sign-in", request.url));
+            return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
           }
         }
       }
@@ -255,7 +257,7 @@ export async function proxy(request, auth) {
       return NextResponse.next();
     }
 
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+    return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
   }
 
   // Redirect / to /dashboard if logged in, or /dashboard if it's the root
