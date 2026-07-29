@@ -8,6 +8,7 @@ import { cn } from "@/shared/utils/cn";
 import { APP_CONFIG, UPDATER_CONFIG } from "@/shared/constants/config";
 import { MEDIA_PROVIDER_KINDS } from "@/shared/constants/providers";
 import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
+import useSettingsStore from "@/store/settingsStore";
 import Button from "./Button";
 import { ConfirmModal } from "./Modal";
 import NineRemotePromoModal from "./NineRemotePromoModal";
@@ -20,13 +21,12 @@ const COMBINED_WEB_ITEM = { id: "web", label: "Web Fetch & Search", icon: "trave
 const navItems = [
   { href: "/dashboard/endpoint", label: "Endpoint & Key", icon: "api" },
   { href: "/dashboard/providers", label: "Providers", icon: "dns" },
-  // { href: "/dashboard/basic-chat", label: "Basic Chat", icon: "chat" }, // Hidden
   { href: "/dashboard/combos", label: "Combos", icon: "layers" },
   { href: "/dashboard/usage", label: "Usage", icon: "bar_chart" },
   { href: "/dashboard/quota", label: "Quota Tracker", icon: "data_usage" },
   { href: "/dashboard/token-saver", label: "Token Saver", icon: "savings" },
-  // { href: "/dashboard/pxpipe", label: "PXPIPE", icon: "image" },
   { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
+  { href: "/dashboard/team", label: "Team", icon: "group" },
 ];
 
 const debugItems = [
@@ -49,21 +49,18 @@ export default function Sidebar({ onClose }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [shutdownCountdown, setShutdownCountdown] = useState(0);
   const [enableTranslator, setEnableTranslator] = useState(false);
-  const [instanceName, setInstanceName] = useState(APP_CONFIG.name);
-  const [instanceLogoUrl, setInstanceLogoUrl] = useState("");
+  const { settings, fetchSettings } = useSettingsStore();
+  const instanceName = settings?.instanceName || APP_CONFIG.name;
+  const instanceLogoUrl = settings?.instanceLogoUrl || "";
   const { copied, copy } = useCopyToClipboard(2000);
 
   const INSTALL_CMD = UPDATER_CONFIG.installCmdLatest;
 
   useEffect(() => {
-    fetch("/api/settings")
-      .then(res => res.json())
-      .then(data => {
-        if (data.enableTranslator) setEnableTranslator(true);
-        if (data.instanceName) setInstanceName(data.instanceName);
-        if (data.instanceLogoUrl) setInstanceLogoUrl(data.instanceLogoUrl);
-      })
-      .catch(() => {});
+    fetchSettings().then((data) => {
+      if (data?.enableTranslator) setEnableTranslator(true);
+      if (data?.instanceName) document.title = data.instanceName + " - AI Infrastructure Management";
+    });
   }, []);
 
   // Lazy check for new npm version on mount

@@ -185,11 +185,19 @@ const ENDPOINT_COLUMNS = [
   { field: "lastUsed", label: "Last Used", align: "right" },
 ];
 
+const USER_COLUMNS = [
+  { field: "userId", label: "User ID" },
+  { field: "rawModel", label: "Model" },
+  { field: "requests", label: "Requests", align: "right" },
+  { field: "lastUsed", label: "Last Used", align: "right" },
+];
+
 const TABLE_OPTIONS = [
   { value: "model", label: "Usage by Model" },
   { value: "account", label: "Usage by Account" },
   { value: "apiKey", label: "Usage by API Key" },
   { value: "endpoint", label: "Usage by Endpoint" },
+  { value: "user", label: "Usage by User" },
 ];
 
 const PERIODS = [
@@ -398,6 +406,30 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
               <td className="px-6 py-3 font-medium">{item.keyName}</td>
               <td className="px-6 py-3">{item.rawModel}</td>
               <td className="px-6 py-3"><Badge variant="neutral" size="sm">{item.provider}</Badge></td>
+              <td className="px-6 py-3 text-right">{fmt(item.requests)}</td>
+              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
+            </>
+          ),
+        };
+      }
+      case "user": {
+        return {
+          columns: USER_COLUMNS,
+          groupedData: groupDataByKey(sortData(stats.byUser || {}, {}, sortBy, sortOrder), "userId"),
+          storageKey: "usage-stats:expanded-users",
+          emptyMessage: "No user-specific usage recorded yet.",
+          renderSummaryCells: (group) => (
+            <>
+              <td className="px-6 py-3 text-text-muted">—</td>
+              <td className="px-6 py-3 text-text-muted">—</td>
+              <td className="px-6 py-3 text-right">{fmt(group.summary.requests)}</td>
+              <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(group.summary.lastUsed)}</td>
+            </>
+          ),
+          renderDetailCells: (item) => (
+            <>
+              <td className="px-6 py-3 font-medium font-mono text-sm">{item.userId?.slice(0, 12) || "—"}</td>
+              <td className="px-6 py-3">{item.rawModel || "—"}</td>
               <td className="px-6 py-3 text-right">{fmt(item.requests)}</td>
               <td className="px-6 py-3 text-right text-text-muted whitespace-nowrap">{fmtTime(item.lastUsed)}</td>
             </>
