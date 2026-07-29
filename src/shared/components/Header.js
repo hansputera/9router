@@ -184,6 +184,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   const [displayName, setDisplayName] = useState("");
   const [loginMethod, setLoginMethod] = useState("");
   const [donateOpen, setDonateOpen] = useState(false);
+  const [clerkEnabled, setClerkEnabled] = useState(false);
 
   // Memoize page info to prevent unnecessary recalculations
   const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
@@ -194,6 +195,10 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
 
     async function loadAuthStatus() {
       try {
+        // Detect Clerk from the server-rendered global (set in layout.js <head>)
+        const isClerk = typeof window !== "undefined" && (window.__CLERK_ENABLED__ || !!window.__PUBLISHABLE_KEY__);
+        if (!cancelled) setClerkEnabled(isClerk);
+
         const res = await fetch("/api/auth/status", { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
@@ -323,7 +328,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
         </button>
         <ThemeToggle />
         <HeaderLanguage />
-        <ClerkHeaderSlot />
+        <ClerkHeaderSlot enabled={clerkEnabled} />
       </div>
       <DonateModal isOpen={donateOpen} onClose={() => setDonateOpen(false)} />
     </header>

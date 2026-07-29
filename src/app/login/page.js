@@ -4,23 +4,31 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Button, Input } from "@/shared/components";
 
-const hasClerk = typeof process !== "undefined" && process.env?.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
 export default function LoginPage() {
   const router = useRouter();
+  const [hasClerk, setHasClerk] = useState(null);
 
   // If Clerk is configured, redirect to Clerk sign-in
   useEffect(() => {
-    if (hasClerk) {
+    const ck = typeof window !== "undefined" && (window.__CLERK_ENABLED__ || !!window.__PUBLISHABLE_KEY__);
+    setHasClerk(!!ck);
+    if (ck) {
       router.replace("/sign-in");
     }
   }, [router]);
+
+  if (hasClerk === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg p-4">
+        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
 
   if (hasClerk) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg p-4">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        <p className="text-text-muted mt-4 ml-3">Redirecting to sign-in...</p>
       </div>
     );
   }

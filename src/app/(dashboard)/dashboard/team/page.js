@@ -3,26 +3,21 @@
 import { useEffect, useState } from "react";
 import { Card, Button } from "@/shared/components";
 
-const hasClerk = typeof process !== "undefined" && process.env?.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
 export default function TeamPage() {
   const [OrgProfile, setOrgProfile] = useState(null);
   const [CreateOrg, setCreateOrg] = useState(null);
   const [hasOrg, setHasOrg] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [hasClerk, setHasClerk] = useState(null);
 
   useEffect(() => {
-    if (!hasClerk) {
-      setLoading(false);
-      return;
-    }
+    const ck = typeof window !== "undefined" && (window.__CLERK_ENABLED__ || !!window.__PUBLISHABLE_KEY__);
+    setHasClerk(!!ck);
+    setLoading(false);
+    if (!ck) return;
     import("@clerk/nextjs").then((mod) => {
       setOrgProfile(() => mod.OrganizationProfile);
       setCreateOrg(() => mod.CreateOrganization);
-    });
-    import("@clerk/nextjs").then((mod) => {
-      const { useOrganizationList } = mod;
-      // Can't use hooks outside of component, so we load the page content conditionally
     });
   }, []);
 

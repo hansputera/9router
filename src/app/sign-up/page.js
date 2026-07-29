@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-const hasClerk = typeof process !== "undefined" && process.env?.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
 export default function SignUpPage() {
   const router = useRouter();
   const [SignUp, setSignUp] = useState(null);
+  const [hasClerk, setHasClerk] = useState(null);
 
   useEffect(() => {
-    if (!hasClerk) {
+    const hasKey = !!(window.__CLERK_ENABLED__ || window.__PUBLISHABLE_KEY__);
+    setHasClerk(hasKey);
+    if (!hasKey) {
       router.replace("/login");
       return;
     }
@@ -19,7 +20,7 @@ export default function SignUpPage() {
       .catch(() => router.replace("/login"));
   }, [router]);
 
-  if (!hasClerk || !SignUp) {
+  if (hasClerk === null || (!hasClerk && !SignUp) || (hasClerk && !SignUp)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

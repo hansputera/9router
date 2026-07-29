@@ -2,19 +2,22 @@
 
 import { useEffect, useState } from "react";
 
-const hasClerkKey = typeof process !== "undefined" && process.env?.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-
-export default function ClerkHeaderSlot() {
+/**
+ * Clerk UI slot for the header. Renders OrganizationSwitcher + UserButton.
+ * Takes an `enabled` prop from the parent (passed down from server component)
+ * to avoid needing frozen NEXT_PUBLIC_ env var at build time.
+ */
+export default function ClerkHeaderSlot({ enabled = false }) {
   const [OrgSwitcher, setOrgSwitcher] = useState(null);
   const [UserBtn, setUserBtn] = useState(null);
 
   useEffect(() => {
-    if (!hasClerkKey) return;
+    if (!enabled) return;
     import("@clerk/nextjs").then((mod) => {
       setOrgSwitcher(() => mod.OrganizationSwitcher);
       setUserBtn(() => mod.UserButton);
     }).catch(() => {});
-  }, []);
+  }, [enabled]);
 
   if (!OrgSwitcher || !UserBtn) return null;
 

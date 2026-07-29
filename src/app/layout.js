@@ -29,7 +29,8 @@ export const viewport = {
   themeColor: "#0a0a0a",
 };
 
-const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || process.env.CLERK_PUBLISHABLE_KEY;
+const clerkEnabled = !!clerkPublishableKey;
 
 function AuthProvider({ children }) {
   if (clerkPublishableKey) {
@@ -45,7 +46,11 @@ export default function RootLayout({ children }) {
         <head>
           <script
             dangerouslySetInnerHTML={{
-              __html: `if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){document.documentElement.classList.add('fonts-loaded')})}else{document.documentElement.classList.add('fonts-loaded')}`,
+              __html: `
+if(document.fonts&&document.fonts.ready){document.fonts.ready.then(function(){document.documentElement.classList.add('fonts-loaded')})}else{document.documentElement.classList.add('fonts-loaded')}
+window.__CLERK_ENABLED__ = ${clerkEnabled};
+window.__PUBLISHABLE_KEY__ = ${JSON.stringify(clerkPublishableKey || "")};
+`,
             }}
           />
         </head>
